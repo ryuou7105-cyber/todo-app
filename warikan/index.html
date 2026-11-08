@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <!-- スマホの画面幅に合わせる設定 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>交通費わりかん</title>
+
+  <style>
+    /* ===== 見た目(デザイン)の設定 ===== */
+    body {
+      margin: 0;
+      padding: 16px;
+      background-color: #f2f4f8;
+      font-family: sans-serif;
+      font-size: 17px;
+      color: #222;
+    }
+    .container {
+      max-width: 640px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    h1 { font-size: 26px; text-align: center; margin: 8px 0; }
+    h2 { font-size: 20px; margin: 0 0 12px; }
+    h3 { font-size: 17px; margin: 16px 0 8px; }
+
+    /* 白いカード(区切りの箱) */
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    /* 入力欄の共通デザイン(指で押しやすい高さ) */
+    input[type="text"], input[type="number"], select {
+      width: 100%;
+      box-sizing: border-box;
+      min-height: 48px;
+      font-size: 17px;
+      padding: 8px 12px;
+      border: 2px solid #ccc;
+      border-radius: 8px;
+      background: #fff;
+    }
+    label { display: block; margin: 10px 0 4px; font-weight: bold; font-size: 15px; }
+
+    /* チェックボックスと文字を横に並べる */
+    .check {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: bold;
+      margin: 12px 0;
+      min-height: 44px;
+    }
+    .check input { width: 26px; height: 26px; margin: 0; flex-shrink: 0; }
+
+    /* 2つの入力欄を横に並べる(スマホで狭いときは縦) */
+    .row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .row > div { flex: 1 1 140px; min-width: 0; }
+
+    /* ボタン */
+    button {
+      min-height: 48px;
+      font-size: 17px;
+      padding: 0 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      color: #fff;
+      background: #2f6fed;
+    }
+    button.wide { width: 100%; margin-top: 12px; }
+    button.red { background: #e5484d; }
+    button.gray { background: #6b7280; }
+
+    /* 小さい説明文 */
+    .hint { font-size: 14px; color: #666; margin: 6px 0 0; line-height: 1.6; }
+    .hint a { color: #2f6fed; }
+    .status { font-size: 15px; margin-top: 8px; min-height: 1em; }
+    .status.ok { color: #1a7f37; }
+    .status.ng { color: #c62828; }
+
+    /* 高速道路の入力エリア(使うときだけ表示) */
+    .sub {
+      border-left: 4px solid #2f6fed;
+      padding-left: 12px;
+      margin-top: 4px;
+    }
+
+    /* 登録した車の一覧 */
+    #car-list { list-style: none; padding: 0; margin: 12px 0 0; }
+    #car-list li {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid #eee;
+    }
+    #car-list li span { flex: 1; min-width: 0; word-break: break-all; }
+
+    /* 計算結果 */
+    .result-table { width: 100%; border-collapse: collapse; font-size: 16px; }
+    .result-table td { padding: 8px 4px; border-bottom: 1px solid #eee; }
+    .result-table td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+    .total td { font-weight: bold; }
+    .per-person {
+      margin-top: 16px;
+      padding: 16px;
+      background: #e8f0fe;
+      border-radius: 10px;
+      text-align: center;
+    }
+    .per-person .big { font-size: 34px; font-weight: bold; color: #2f6fed; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>交通費わりかん</h1>
+
+  <!-- ========== 1. 車の登録 ========== -->
+  <div class="card">
+    <h2>① 車を登録する</h2>
+    <label for="car-name">車の名前</label>
+    <input type="text" id="car-name" placeholder="例:パパのプリウス">
+    <div class="row">
+      <div>
+        <label for="car-kmpl">燃費(km/L)</label>
+        <input type="number" id="car-kmpl" placeholder="例:20" inputmode="decimal" min="1" step="0.1">
+      </div>
+      <div>
+        <label for="car-fuel">燃料</label>
+        <select id="car-fuel">
+          <option value="regular">レギュラー</option>
+          <option value="premium">ハイオク</option>
+          <option value="diesel">軽油</option>
+        </select>
+      </div>
+    </div>
+    <button class="wide" id="car-add">車を登録</button>
+    <p class="hint">燃費は、カタログの数字より少し低め(実際に走ったときの数字)にすると、実際の値段に近くなります。</p>
+    <ul id="car-list"></ul>
+  </div>
+
+  <!-- ========== 2. ガソリンの値段 ========== -->
+  <div class="card">
+    <h2>② ガソリンの値段(1Lあたり)</h2>
+    <div class="row">
+      <div>
+        <label for="price-regular">レギュラー</label>
+        <input type="number" id="price-regular" inputmode="decimal" min="0">
+      </div>
+      <div>
+        <label for="price-premium">ハイオク</label>
+        <input type="number" id="price-premium" inputmode="decimal" min="0">
+      </div>
+      <div>
+        <label for="price-diesel">軽油</label>
+        <input type="number" id="price-diesel" inputmode="decimal" min="0">
+      </div>
+    </div>
+    <p class="hint">
+      全国平均は国(資源エネルギー庁)が毎週水曜日に発表しています。
+      <a href="https://www.enecho.meti.go.jp/statistics/petroleum_and_lpgas/pl007/results.html" target="_blank" rel="noopener">最新の全国平均を見る</a>
+      ときどき見て、数字を書きかえてください(入れた数字は覚えておきます)。
+    </p>
+  </div>
+
+  <!-- ========== 3. 今回の移動 ========== -->
+  <div class="card">
+    <h2>③ 今回の移動</h2>
+
+    <label for="trip-car">使う車</label>
+    <select id="trip-car"></select>
+
+    <!-- ---- 行き ---- -->
+    <h3>行き</h3>
+    <label for="go-from">出発する住所</label>
+    <input type="text" id="go-from" placeholder="例:東京都千代田区丸の内1-9-1">
+    <label for="go-to">到着する住所</label>
+    <input type="text" id="go-to" placeholder="例:静岡県静岡市葵区追手町9-6">
+    <button class="wide" id="go-search">距離を自動で調べる</button>
+    <div class="status" id="go-status"></div>
+    <label for="go-km">行きの距離(km)</label>
+    <input type="number" id="go-km" inputmode="decimal" min="0" placeholder="自動で入ります。手で入れてもOK">
+    <p class="hint"><a id="go-map" href="#" target="_blank" rel="noopener">Googleマップで道順と距離を確かめる</a></p>
+
+    <label class="check"><input type="checkbox" id="go-hw"> 行きに高速道路を使う</label>
+    <div class="sub" id="go-hw-area">
+      <div class="row">
+        <div>
+          <label for="go-ic-in">乗るIC</label>
+          <input type="text" id="go-ic-in" placeholder="例:東京IC">
+        </div>
+        <div>
+          <label for="go-ic-out">降りるIC</label>
+          <input type="text" id="go-ic-out" placeholder="例:静岡IC">
+        </div>
+      </div>
+      <label for="go-toll">高速料金(円)</label>
+      <input type="number" id="go-toll" inputmode="numeric" min="0" placeholder="例:3790">
+      <label for="go-discount">ETC割引</label>
+      <select id="go-discount">
+        <option value="0">割引なし</option>
+        <option value="0.3">休日割引(30%引き)</option>
+        <option value="0.3">深夜割引(30%引き)</option>
+      </select>
+      <p class="hint">
+        料金は <a href="https://www.driveplaza.com/" target="_blank" rel="noopener">ドラぷら(NEXCOの料金検索)</a> で、ICの名前と日時を入れると調べられます。
+        ETC割引が使えるかどうかは、同じ区間でも曜日や時間で変わります。ドラぷらで「ETC料金」を確かめてから選んでください。割引後の料金をそのまま入れたときは「割引なし」を選びます。1人分は選んだ単位で切り上げます。
+      </p>
+    </div>
+
+    <!-- ---- 帰り ---- -->
+    <h3>帰り</h3>
+    <label class="check"><input type="checkbox" id="back-same" checked> 帰りは行きと同じ道を逆に帰る</label>
+    <div id="back-address-area">
+      <label for="back-from">出発する住所</label>
+      <input type="text" id="back-from">
+      <label for="back-to">到着する住所</label>
+      <input type="text" id="back-to">
+      <button class="wide" id="back-search">距離を自動で調べる</button>
+      <div class="status" id="back-status"></div>
+      <label for="back-km">帰りの距離(km)</label>
+      <input type="number" id="back-km" inputmode="decimal" min="0" placeholder="自動で入ります。手で入れてもOK">
+      <p class="hint"><a id="back-map" href="#" target="_blank" rel="noopener">Googleマップで道順と距離を確かめる</a></p>
+    </div>
+
+    <label class="check"><input type="checkbox" id="back-hw"> 帰りに高速道路を使う</label>
+    <div class="sub" id="back-hw-area">
+      <div class="row">
+        <div>
+          <label for="back-ic-in">乗るIC</label>
+          <input type="text" id="back-ic-in" placeholder="例:静岡IC">
+        </div>
+        <div>
+          <label for="back-ic-out">降りるIC</label>
+          <input type="text" id="back-ic-out" placeholder="例:東京IC">
+        </div>
+      </div>
+      <label for="back-toll">高速料金(円)</label>
+      <input type="number" id="back-toll" inputmode="numeric" min="0" placeholder="例:3790">
+      <label for="back-discount">ETC割引</label>
+      <select id="back-discount">
+        <option value="0">割引なし</option>
+        <option value="0.3">休日割引(30%引き)</option>
+        <option value="0.3">深夜割引(30%引き)</option>
+      </select>
+    </div>
+
+    <!-- ---- その他 ---- -->
+    <h3>そのほか</h3>
+    <label for="other">駐車場代など(円)</label>
+    <input type="number" id="other" inputmode="numeric" min="0" placeholder="なければ空のままでOK">
+
+    <div class="row">
+      <div>
+        <label for="people">乗る人数(運転手もふくむ)</label>
+        <input type="number" id="people" inputmode="numeric" min="1" value="2">
+      </div>
+      <div>
+        <label for="rounding">1人分の端数</label>
+        <select id="rounding">
+          <option value="1">1円単位</option>
+          <option value="10">10円単位</option>
+          <option value="100" selected>100円単位</option>
+        </select>
+      </div>
+    </div>
+    <label class="check"><input type="checkbox" id="driver-pays" checked> 運転手もお金を出す</label>
+  </div>
+
+  <!-- ========== 4. 結果 ========== -->
+  <div class="card">
+    <h2>④ 結果</h2>
+    <table class="result-table">
+      <tbody id="result-body"></tbody>
+    </table>
+    <div class="per-person">
+      <div id="per-label">1人あたり</div>
+      <div class="big" id="per-person">0円</div>
+      <div class="hint" id="per-note"></div>
+    </div>
+    <button class="wide" id="copy">結果をコピー(LINEなどに貼れます)</button>
+    <button class="wide gray" id="reset">今回の移動を空にする</button>
+    <div class="status" id="copy-status"></div>
+  </div>
+</div>
+
+<script>
+  // =====================================================
+  //  ここから動き(プログラム)の部分
+  // =====================================================
+
+  // 保存するときの名前
+  const STORAGE_KEY = "warikan-app";
+
+  // ガソリン価格の最初の値(目安)。画面で書きかえると、そちらが使われます
+  const DEFAULT_PRICES = { regular: 160, premium: 171, diesel: 145 };
+
+  // 燃料の日本語の名前
+  const FUEL_NAMES = { regular: "レギュラー", premium: "ハイオク", diesel: "軽油" };
+
+  // 「今回の移動」で覚えておく入力欄の id 一覧
+  const TRIP_FIELDS = [
+    "trip-car", "go-from", "go-to", "go-km", "go-hw", "go-ic-in", "go-ic-out", "go-toll", "go-discount",
+    "back-same", "back-from", "back-to", "back-km", "back-hw", "back-ic-in", "back-ic-out", "back-toll",
+    "back-discount", "other", "people", "rounding", "driver-pays"
+  ];
+
+  // id から画面の部品を取り出す短い書き方
+  function $(id) { return document.getElementById(id); }
+
+  // ---------- 保存データ ----------
+  // data の中身: { cars: [{name, kmpl, fuel}], prices: {...}, trip: {...} }
+  let data = load();
+
+  function load() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+      if (saved) return saved;
+    } catch (e) { /* 読めなかったら下の初期データを使う */ }
+    return { cars: [], prices: { ...DEFAULT_PRICES }, trip: {} };
+  }
+
+  function save() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch (e) { /* 保存できない環境でも止まらないようにする */ }
+  }
+
+  // 入力欄の数字を取り出す(空や変な文字なら 0 にする)
+  function num(id) {
+    const n = parseFloat($(id).value);
+    return isNaN(n) ? 0 : n;
+  }
+
+  // 数字を「1,234円」のような形にする
+  function yen(n) { return Math.round(n).toLocaleString("ja-JP") + "円"; }
+
+  // =====================================================
+  //  ① 車の登録
+  // =====================================================
+  function renderCars() {
+    // 車の一覧を作り直す
+    const list = $("car-list");
+    list.innerHTML = "";
+    data.cars.forEach(function (car, index) {
+      const li = document.createElement("li");
+      const span = document.createElement("span");
+      span.textContent = car.name + "(燃費 " + car.kmpl + "km/L・" + FUEL_NAMES[car.fuel] + ")";
+      const del = document.createElement("button");
+      del.className = "red";
+      del.textContent = "削除";
+      del.addEventListener("click", function () {
+        data.cars.splice(index, 1); // index番目の車を消す
+        save();
+        renderCars();
+      });
+      li.appendChild(span);
+      li.appendChild(del);
+      list.appendChild(li);
+    });
+
+    // 「使う車」の選択肢も作り直す
+    const select = $("trip-car");
+    const before = select.value;
+    select.innerHTML = "";
+    if (data.cars.length === 0) {
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = "先に①で車を登録してください";
+      select.appendChild(opt);
+    }
+    data.cars.forEach(function (car, index) {
+      const opt = document.createElement("option");
+      opt.value = index;
+      opt.textContent = car.name;
+      select.appendChild(opt);
+    });
+    // 前に選んでいた車がまだあれば、それを選んだままにする
+    if (before !== "" && data.cars[before]) select.value = before;
+    calc();
+  }
+
+  $("car-add").addEventListener("click", function () {
+    const name = $("car-name").value.trim();
+    const kmpl = num("car-kmpl");
+    if (name === "" || kmpl <= 0) {
+      alert("車の名前と燃費を入れてください");
+      return;
+    }
+    data.cars.push({ name: name, kmpl: kmpl, fuel: $("car-fuel").value });
+    save();
+    $("car-name").value = "";
+    $("car-kmpl").value = "";
+    renderCars();
+    $("trip-car").value = data.cars.length - 1; // 今登録した車を選んでおく
+    saveTrip();
+    calc();
+  });
+
+  // =====================================================
+  //  ② ガソリンの値段
+  // =====================================================
+  ["regular", "premium", "diesel"].forEach(function (fuel) {
+    const input = $("price-" + fuel);
+    input.value = data.prices[fuel];
+    input.addEventListener("input", function () {
+      data.prices[fuel] = num("price-" + fuel);
+      save();
+      calc();
+    });
+  });
+
+  // =====================================================
+  //  ③ 距離を自動で調べる
+  // =====================================================
+
+  // 住所 → 緯度・経度(国土地理院の無料サービスを使う)
+  async function addressToPoint(address) {
+    const url = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=" + encodeURIComponent(address);
+    const res = await fetch(url);
+    const list = await res.json();
+    if (!list || list.length === 0) {
+      throw new Error("「" + address + "」の場所が見つかりませんでした");
+    }
+    return list[0].geometry.coordinates; // [経度, 緯度] の順で入っている
+  }
+
+  // 2つの地点の、車で走る道のりの距離(km)を調べる(OSRMという無料サービスを使う)
+  async function roadDistanceKm(from, to) {
+    const url = "https://router.project-osrm.org/route/v1/driving/" +
+      from[0] + "," + from[1] + ";" + to[0] + "," + to[1] + "?overview=false";
+    const res = await fetch(url);
+    const json = await res.json();
+    if (json.code !== "Ok" || !json.routes || json.routes.length === 0) {
+      throw new Error("道順が見つかりませんでした");
+    }
+    return json.routes[0].distance / 1000; // メートル → キロメートル
+  }
+
+  // 「距離を自動で調べる」ボタンの動き(行き・帰りで共通)
+  async function searchDistance(prefix) {
+    const from = $(prefix + "-from").value.trim();
+    const to = $(prefix + "-to").value.trim();
+    const status = $(prefix + "-status");
+    if (from === "" || to === "") {
+      status.className = "status ng";
+      status.textContent = "出発と到着の住所を両方入れてください";
+      return;
+    }
+    status.className = "status";
+    status.textContent = "調べています…";
+    try {
+      const a = await addressToPoint(from);
+      const b = await addressToPoint(to);
+      const km = await roadDistanceKm(a, b);
+      $(prefix + "-km").value = km.toFixed(1); // 小数第1位まで
+      status.className = "status ok";
+      status.textContent = "約 " + km.toFixed(1) + " km でした(目安です)";
+      saveTrip();
+      calc();
+    } catch (e) {
+      status.className = "status ng";
+      status.textContent = "自動で調べられませんでした。下のGoogleマップのリンクで調べて、距離を手で入れてください。";
+    }
+  }
+  $("go-search").addEventListener("click", function () { searchDistance("go"); });
+  $("back-search").addEventListener("click", function () { searchDistance("back"); });
+
+  // Googleマップのリンクを、入力された住所に合わせて作る
+  function updateMapLinks() {
+    ["go", "back"].forEach(function (prefix) {
+      const from = $(prefix + "-from").value.trim();
+      const to = $(prefix + "-to").value.trim();
+      $(prefix + "-map").href = "https://www.google.com/maps/dir/?api=1&travelmode=driving" +
+        "&origin=" + encodeURIComponent(from) + "&destination=" + encodeURIComponent(to);
+    });
+  }
+
+  // =====================================================
+  //  表示・非表示の切りかえ
+  // =====================================================
+  function updateVisibility() {
+    $("go-hw-area").style.display = $("go-hw").checked ? "block" : "none";
+    $("back-hw-area").style.display = $("back-hw").checked ? "block" : "none";
+    $("back-address-area").style.display = $("back-same").checked ? "none" : "block";
+  }
+
+  // =====================================================
+  //  ④ 計算
+  // =====================================================
+  // 高速料金を計算する(割引をかける)
+  function tollOf(prefix) {
+    if (!$(prefix + "-hw").checked) return 0; // 高速を使わないなら 0円
+    const toll = num(prefix + "-toll");
+    const discount = parseFloat($(prefix + "-discount").value); // 0 か 0.3
+    return Math.round(toll * (1 - discount));
+  }
+
+  let lastResultText = ""; // コピー用の文章
+
+  function calc() {
+    const car = data.cars[$("trip-car").value];
+
+    // 距離:帰りが「同じ道」なら行きと同じ距離にする
+    const goKm = num("go-km");
+    const backKm = $("back-same").checked ? goKm : num("back-km");
+    const totalKm = goKm + backKm;
+
+    // ガソリン代 = 距離 ÷ 燃費 × 1Lの値段
+    let liters = 0;
+    let fuelCost = 0;
+    if (car) {
+      liters = totalKm / car.kmpl;
+      fuelCost = liters * (data.prices[car.fuel] || 0);
+    }
+
+    const goToll = tollOf("go");
+    const backToll = tollOf("back");
+    const other = num("other");
+    const total = Math.round(fuelCost) + goToll + backToll + other;
+
+    // 何人で割るか(運転手が払わないなら1人へらす)
+    const people = Math.max(1, Math.floor(num("people")));
+    const driverPays = $("driver-pays").checked;
+    const payers = driverPays ? people : people - 1;
+
+    // 1人分を計算して、端数を切り上げる
+    const unit = parseInt($("rounding").value, 10);
+    let per = 0;
+    if (payers > 0) per = Math.ceil(total / payers / unit) * unit;
+
+    // ---- 表を作る ----
+    const rows = [
+      ["使う車", car ? car.name + "(" + FUEL_NAMES[car.fuel] + ")" : "未選択"],
+      ["走る距離(行き+帰り)", totalKm.toFixed(1) + " km"],
+      ["使うガソリン", liters.toFixed(1) + " L"],
+      ["ガソリン代", yen(fuelCost)],
+      ["高速代(行き)", yen(goToll)],
+      ["高速代(帰り)", yen(backToll)],
+      ["駐車場代など", yen(other)],
+      ["合計", yen(total)]
+    ];
+    const body = $("result-body");
+    body.innerHTML = "";
+    rows.forEach(function (r, i) {
+      const tr = document.createElement("tr");
+      if (i === rows.length - 1) tr.className = "total";
+      const td1 = document.createElement("td");
+      td1.textContent = r[0];
+      const td2 = document.createElement("td");
+      td2.textContent = r[1];
+      tr.appendChild(td1);
+      tr.appendChild(td2);
+      body.appendChild(tr);
+    });
+
+    // ---- 1人あたり ----
+    let note = "";
+    if (!car) {
+      note = "①で車を登録して、③で選んでください";
+    } else if (payers <= 0) {
+      note = "払う人がいません。人数をふやしてください";
+    } else {
+      const collected = per * payers;
+      note = payers + "人で割りました" + (driverPays ? "" : "(運転手はのぞく)");
+      if (collected > total) note += "。切り上げで " + yen(collected - total) + " 多く集まります";
+    }
+    $("per-label").textContent = driverPays ? "1人あたり" : "1人あたり(運転手以外)";
+    $("per-person").textContent = payers > 0 ? yen(per) : "-";
+    $("per-note").textContent = note;
+
+    // ---- コピー用の文章 ----
+    const lines = ["【交通費わりかん】"];
+    if ($("go-from").value && $("go-to").value) {
+      lines.push("行き:" + $("go-from").value + " → " + $("go-to").value);
+    }
+    if ($("go-hw").checked) lines.push("高速(行き):" + $("go-ic-in").value + " → " + $("go-ic-out").value + " " + yen(goToll));
+    if ($("back-hw").checked) lines.push("高速(帰り):" + $("back-ic-in").value + " → " + $("back-ic-out").value + " " + yen(backToll));
+    lines.push("距離:" + totalKm.toFixed(1) + "km / ガソリン代:" + yen(fuelCost));
+    if (other > 0) lines.push("駐車場など:" + yen(other));
+    lines.push("合計:" + yen(total));
+    lines.push((driverPays ? "1人あたり:" : "1人あたり(運転手以外):") + yen(per) + "(" + payers + "人)");
+    lastResultText = lines.join("\n");
+  }
+
+  // =====================================================
+  //  今回の移動の入力を覚えておく
+  // =====================================================
+  function saveTrip() {
+    TRIP_FIELDS.forEach(function (id) {
+      const el = $(id);
+      data.trip[id] = el.type === "checkbox" ? el.checked : el.value;
+    });
+    save();
+  }
+
+  function restoreTrip() {
+    TRIP_FIELDS.forEach(function (id) {
+      if (!(id in data.trip)) return;
+      const el = $(id);
+      if (el.type === "checkbox") el.checked = data.trip[id];
+      else el.value = data.trip[id];
+    });
+  }
+
+  // 入力が変わるたびに:保存 → 表示切りかえ → 計算
+  TRIP_FIELDS.forEach(function (id) {
+    $(id).addEventListener("input", onTripChange);
+    $(id).addEventListener("change", onTripChange);
+  });
+  function onTripChange() {
+    saveTrip();
+    updateVisibility();
+    updateMapLinks();
+    calc();
+  }
+
+  // =====================================================
+  //  結果のコピーとリセット
+  // =====================================================
+  $("copy").addEventListener("click", function () {
+    const status = $("copy-status");
+    navigator.clipboard.writeText(lastResultText).then(function () {
+      status.className = "status ok";
+      status.textContent = "コピーしました。LINEなどに貼り付けられます。";
+    }, function () {
+      status.className = "status ng";
+      status.textContent = "コピーできませんでした";
+    });
+  });
+
+  $("reset").addEventListener("click", function () {
+    if (!confirm("今回の移動の入力を空にしますか?(車とガソリンの値段は残ります)")) return;
+    const keepCar = $("trip-car").value;
+    data.trip = {};
+    TRIP_FIELDS.forEach(function (id) {
+      const el = $(id);
+      if (el.type === "checkbox") el.checked = (id === "back-same" || id === "driver-pays");
+      else if (el.tagName === "SELECT") el.selectedIndex = 0;
+      else el.value = "";
+    });
+    $("trip-car").value = keepCar;
+    $("people").value = 2;
+    $("rounding").value = "100";
+    ["go-status", "back-status", "copy-status"].forEach(function (id) { $(id).textContent = ""; });
+    onTripChange();
+  });
+
+  // =====================================================
+  //  ページを開いたときに最初にやること
+  // =====================================================
+  renderCars();
+  restoreTrip();
+  updateVisibility();
+  updateMapLinks();
+  calc();
+</script>
+</body>
+</html>
