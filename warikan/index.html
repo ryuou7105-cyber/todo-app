@@ -125,6 +125,25 @@
     .reg-list li span { flex: 1; min-width: 0; word-break: break-all; }
     .reg-list small { color: #666; }
 
+    /* 保存したパターン */
+    .pattern-box {
+      background: #f5f8ff;
+      border: 2px solid #c9d8fb;
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 8px;
+    }
+    .pattern-box label { margin-top: 0; }
+    .pattern-row { display: flex; gap: 8px; }
+    .pattern-row select, .pattern-row input { flex: 1; min-width: 0; }
+    .compare {
+      margin-top: 10px;
+      font-size: 15px;
+      line-height: 1.7;
+    }
+    .compare .up { color: #c62828; font-weight: bold; }
+    .compare .down { color: #1a7f37; font-weight: bold; }
+
     /* 計算結果 */
     .result-table { width: 100%; border-collapse: collapse; font-size: 16px; }
     .result-table td { padding: 8px 4px; border-bottom: 1px solid #eee; }
@@ -224,6 +243,16 @@
   <!-- ========== 3. 今回の移動 ========== -->
   <div class="card">
     <h2>③ 今回の移動</h2>
+
+    <div class="pattern-box">
+      <label for="pattern-select">保存したパターンを呼び出す</label>
+      <div class="pattern-row">
+        <select id="pattern-select"></select>
+        <button class="red" id="pattern-delete">削除</button>
+      </div>
+      <div class="compare" id="pattern-compare"></div>
+      <p class="hint">呼び出したあと、ガソリンの値段や人数などを変えると、結果がすぐ計算し直されます。保存したときとの差もここに出ます。</p>
+    </div>
 
     <label for="trip-car">使う車</label>
     <select id="trip-car"></select>
@@ -346,6 +375,15 @@
       <div class="big" id="per-person">0円</div>
       <div class="hint" id="per-note"></div>
     </div>
+    <div class="pattern-box" style="margin-top:16px">
+      <label for="pattern-name">この内容をパターンとして保存</label>
+      <div class="pattern-row">
+        <input type="text" id="pattern-name" placeholder="例:実家へ帰省">
+        <button id="pattern-save">保存</button>
+      </div>
+      <div class="status" id="pattern-status"></div>
+      <p class="hint">同じ名前で保存すると、新しい内容に上書きされます。</p>
+    </div>
     <button class="wide" id="copy">結果をコピー(LINEなどに貼れます)</button>
     <button class="wide gray" id="reset">今回の移動を空にする</button>
     <div class="status" id="copy-status"></div>
@@ -385,6 +423,7 @@
   // さらに前のバージョンでは IC を文字だけで保存していたので、形をそろえる
   data.ics = data.ics.map(function (ic) { return typeof ic === "string" ? { name: ic } : ic; });
   data.tolls = data.tolls || {};   // { "東京IC→静岡IC": 3790 }
+  data.patterns = data.patterns || []; // [{name, trip, carName, total, per, prices, savedAt}]
 
   function load() {
     try {
@@ -776,6 +815,8 @@
   }
 
   let lastResultText = ""; // コピー用の文章
+  let lastTotal = 0;       // 今の合計金額
+  let lastPer = 0;         // 今の1人あたり
 
   function calc() {
     const car = data.cars[$("trip-car").value];
@@ -808,6 +849,8 @@
     const unit = parseInt($("rounding").value, 10);
     let per = 0;
     if (payers > 0) per = Math.ceil(total / payers / unit) * unit;
+    lastTotal = total;
+    lastPer = per;
 
     // ---- 表を作る ----
     const rows = [
@@ -863,6 +906,9 @@
     lines.push("合計:" + yen(total));
     lines.push((driverPays ? "1人あたり:" : "1人あたり(運転手以外):") + yen(per) + "(" + payers + "人)");
     lastResultText = lines.join("\n");
+
+    // パターンを呼び出しているときは、保存したときとの差を出す
+    showCompare();
   }
 
   // =====================================================
@@ -911,6 +957,126 @@
     });
   });
 
+  // =====================================================
+  //  パターンの保存・呼び出し
+  // =====================================================
+  let loadedPattern = null; // 今呼び出しているパターン(比べるために使う)
+
+  // 呼び出し用のプルダウンを作り直す
+  function renderPatterns() {
+    const sel = $("pattern-select");
+    sel.innerHTML = "";
+    const first = document.createElement("option");
+    first.value = "";
+    first.textContent = data.patterns.length === 0 ? "(まだ保存したパターンがありません)" : "▼ パターンを選ぶ";
+    sel.appendChild(first);
+    data.patterns.forEach(function (pt, index) {
+      const opt = document.createElement("option");
+      opt.value = index;
+      opt.textContent = pt.name;
+      sel.appendChild(opt);
+    });
+    if (loadedPattern) {
+      const i = data.patterns.indexOf(loadedPattern);
+      if (i !== -1) sel.value = i;
+    }
+  }
+
+  // 保存したときと今の金額を比べて表示する
+  function showCompare() {
+    const box = $("pattern-compare");
+    box.innerHTML = "";
+    if (!loadedPattern) return;
+    const pt = loadedPattern;
+
+    // 差を「+171円」「-50円」「変わらず」の形にする部品
+    function diffSpan(now, before) {
+      const span = document.createElement("span");
+      const d = Math.round(now - before);
+      if (d > 0) { span.className = "up"; span.textContent = "(+" + yen(d) + ")"; }
+      else if (d < 0) { span.className = "down"; span.textContent = "(-" + yen(-d) + ")"; }
+      else { span.textContent = "(変わらず)"; }
+      return span;
+    }
+    function line(label, before, now) {
+      const div = document.createElement("div");
+      div.textContent = label + ":保存したとき " + yen(before) + " → 今 " + yen(now) + " ";
+      div.appendChild(diffSpan(now, before));
+      box.appendChild(div);
+    }
+    const head = document.createElement("div");
+    head.textContent = "「" + pt.name + "」(" + pt.savedAt + " に保存)";
+    box.appendChild(head);
+    line("合計", pt.total, lastTotal);
+    line("1人あたり", pt.per, lastPer);
+  }
+
+  // 保存
+  $("pattern-save").addEventListener("click", function () {
+    const name = $("pattern-name").value.trim();
+    const status = $("pattern-status");
+    if (name === "") {
+      status.className = "status ng";
+      status.textContent = "パターンの名前を入れてください";
+      return;
+    }
+    saveTrip();
+    const car = data.cars[$("trip-car").value];
+    const now = new Date();
+    const pattern = {
+      name: name,
+      trip: JSON.parse(JSON.stringify(data.trip)), // 今の入力をまるごとコピー
+      carName: car ? car.name : "",                // 車は名前でも覚えておく(車を消して番号がずれても大丈夫なように)
+      total: lastTotal,
+      per: lastPer,
+      savedAt: now.getFullYear() + "/" + (now.getMonth() + 1) + "/" + now.getDate()
+    };
+    const index = data.patterns.findIndex(function (x) { return x.name === name; });
+    if (index !== -1) {
+      if (!confirm("「" + name + "」はもうあります。上書きしますか?")) return;
+      data.patterns[index] = pattern;
+    } else {
+      data.patterns.push(pattern);
+    }
+    save();
+    loadedPattern = pattern;
+    renderPatterns();
+    showCompare();
+    status.className = "status ok";
+    status.textContent = "「" + name + "」を保存しました";
+  });
+
+  // 呼び出し
+  $("pattern-select").addEventListener("change", function () {
+    const pt = data.patterns[$("pattern-select").value];
+    if (!pt) return;
+    data.trip = JSON.parse(JSON.stringify(pt.trip));
+    restoreTrip();
+    // 車は名前で探して選び直す
+    const carIndex = data.cars.findIndex(function (c) { return c.name === pt.carName; });
+    if (carIndex !== -1) $("trip-car").value = carIndex;
+    ["go-status", "back-status", "copy-status", "pattern-status"].forEach(function (id) { $(id).textContent = ""; });
+    $("pattern-name").value = pt.name; // そのまま上書き保存しやすいように
+    loadedPattern = pt;
+    onTripChange();
+  });
+
+  // 削除
+  $("pattern-delete").addEventListener("click", function () {
+    const index = $("pattern-select").value;
+    const pt = data.patterns[index];
+    if (!pt) {
+      alert("削除したいパターンを、先にプルダウンで選んでください");
+      return;
+    }
+    if (!confirm("「" + pt.name + "」を削除しますか?")) return;
+    data.patterns.splice(index, 1);
+    if (loadedPattern === pt) loadedPattern = null;
+    save();
+    renderPatterns();
+    showCompare();
+  });
+
   $("reset").addEventListener("click", function () {
     if (!confirm("今回の移動の入力を空にしますか?(車とガソリンの値段は残ります)")) return;
     const keepCar = $("trip-car").value;
@@ -924,7 +1090,10 @@
     $("trip-car").value = keepCar;
     $("people").value = 2;
     $("rounding").value = "100";
-    ["go-status", "back-status", "copy-status"].forEach(function (id) { $(id).textContent = ""; });
+    ["go-status", "back-status", "copy-status", "pattern-status"].forEach(function (id) { $(id).textContent = ""; });
+    $("pattern-name").value = "";
+    loadedPattern = null;
+    renderPatterns();
     onTripChange();
   });
 
@@ -933,6 +1102,7 @@
   // =====================================================
   renderCars();
   renderRegistry();
+  renderPatterns();
   restoreTrip();
   updateVisibility();
   updateMapLinks();
