@@ -185,9 +185,17 @@
     <h3>IC(インターチェンジ)</h3>
     <label for="ic-name">ICの名前</label>
     <input type="text" id="ic-name" placeholder="例:東京IC">
+    <label for="ic-address">ICの住所(わからなければ空でOK)</label>
+    <input type="text" id="ic-address" placeholder="例:東京都世田谷区砧公園">
     <button class="wide" id="ic-add">ICを登録</button>
+    <div class="status" id="ic-status"></div>
     <ul class="reg-list" id="ic-list"></ul>
-    <p class="hint">同じ「乗るIC→降りるIC」で一度料金を入れると、次からは料金も自動で入ります。</p>
+    <p class="hint">
+      登録するときに、ICの場所(地図上の位置)を自動で探します。場所がわかったICは「位置あり」になり、
+      距離を調べるときにそのICを通る道のりで計算します。「位置なし」になったら、Googleマップで
+      ICの住所を調べて入れ、もう一度登録してください。<br>
+      同じ「乗るIC→降りるIC」で一度料金を入れると、次からは料金も自動で入ります。
+    </p>
   </div>
 
   <div class="card">
@@ -228,11 +236,6 @@
     <label for="go-to">到着する住所</label>
     <select class="pick" data-kind="place" data-target="go-to" aria-label="登録した場所から選ぶ"></select>
     <input type="text" id="go-to" placeholder="例:静岡県静岡市葵区追手町9-6">
-    <button class="wide" id="go-search">距離を自動で調べる</button>
-    <div class="status" id="go-status"></div>
-    <label for="go-km">行きの距離(km)</label>
-    <input type="number" id="go-km" inputmode="decimal" min="0" placeholder="自動で入ります。手で入れてもOK">
-    <p class="hint"><a id="go-map" href="#" target="_blank" rel="noopener">Googleマップで道順と距離を確かめる</a></p>
 
     <label class="check"><input type="checkbox" id="go-hw"> 行きに高速道路を使う</label>
     <div class="sub" id="go-hw-area">
@@ -258,13 +261,19 @@
       </select>
       <p class="hint">
         料金は <a href="https://www.driveplaza.com/" target="_blank" rel="noopener">ドラぷら(NEXCOの料金検索)</a> で、ICの名前と日時を入れると調べられます。
-        ETC割引が使えるかどうかは、同じ区間でも曜日や時間で変わります。ドラぷらで「ETC料金」を確かめてから選んでください。割引後の料金をそのまま入れたときは「割引なし」を選びます。1人分は選んだ単位で切り上げます。
+        ETC割引が使えるかどうかは、同じ区間でも曜日や時間で変わります。ドラぷらで「ETC料金」を確かめてから選んでください。割引後の料金をそのまま入れたときは「割引なし」を選びます。
       </p>
     </div>
 
+    <button class="wide" id="go-search">行きの距離を自動で調べる</button>
+    <div class="status" id="go-status"></div>
+    <label for="go-km">行きの距離(km)</label>
+    <input type="number" id="go-km" inputmode="decimal" min="0" placeholder="自動で入ります。手で入れてもOK">
+    <p class="hint"><a id="go-map" href="#" target="_blank" rel="noopener">Googleマップで道順と距離を確かめる</a></p>
+
     <!-- ---- 帰り ---- -->
     <h3>帰り</h3>
-    <label class="check"><input type="checkbox" id="back-same" checked> 帰りは行きと同じ道を逆に帰る</label>
+    <label class="check"><input type="checkbox" id="back-same" checked> 行きの到着地から、行きの出発地へ戻る</label>
     <div id="back-address-area">
       <label for="back-from">出発する住所</label>
       <select class="pick" data-kind="place" data-target="back-from" aria-label="登録した場所から選ぶ"></select>
@@ -272,11 +281,6 @@
       <label for="back-to">到着する住所</label>
       <select class="pick" data-kind="place" data-target="back-to" aria-label="登録した場所から選ぶ"></select>
       <input type="text" id="back-to">
-      <button class="wide" id="back-search">距離を自動で調べる</button>
-      <div class="status" id="back-status"></div>
-      <label for="back-km">帰りの距離(km)</label>
-      <input type="number" id="back-km" inputmode="decimal" min="0" placeholder="自動で入ります。手で入れてもOK">
-      <p class="hint"><a id="back-map" href="#" target="_blank" rel="noopener">Googleマップで道順と距離を確かめる</a></p>
     </div>
 
     <label class="check"><input type="checkbox" id="back-hw"> 帰りに高速道路を使う</label>
@@ -302,6 +306,12 @@
         <option value="0.3">深夜割引(30%引き)</option>
       </select>
     </div>
+
+    <button class="wide" id="back-search">帰りの距離を自動で調べる</button>
+    <div class="status" id="back-status"></div>
+    <label for="back-km">帰りの距離(km)</label>
+    <input type="number" id="back-km" inputmode="decimal" min="0" placeholder="空のときは行きと同じ距離で計算します">
+    <p class="hint"><a id="back-map" href="#" target="_blank" rel="noopener">Googleマップで道順と距離を確かめる</a></p>
 
     <!-- ---- その他 ---- -->
     <h3>そのほか</h3>
@@ -371,7 +381,9 @@
   let data = load();
   // 前のバージョンで保存したデータには、場所・IC・料金メモがないので用意する
   data.places = data.places || []; // [{name, address}]
-  data.ics = data.ics || [];       // ["東京IC", ...]
+  data.ics = data.ics || [];       // [{name: "東京IC", lon: 経度, lat: 緯度}]
+  // さらに前のバージョンでは IC を文字だけで保存していたので、形をそろえる
+  data.ics = data.ics.map(function (ic) { return typeof ic === "string" ? { name: ic } : ic; });
   data.tolls = data.tolls || {};   // { "東京IC→静岡IC": 3790 }
 
   function load() {
@@ -494,7 +506,10 @@
       span.appendChild(small);
     });
     renderRegList("ic-list", data.ics, function (ic, span) {
-      span.textContent = ic;
+      span.textContent = ic.name + " ";
+      const small = document.createElement("small");
+      small.textContent = ic.lon !== undefined ? "位置あり" : "位置なし";
+      span.appendChild(small);
     });
 
     document.querySelectorAll("select.pick").forEach(function (sel) {
@@ -505,13 +520,13 @@
       first.value = "";
       first.textContent = items.length === 0
         ? "(まだ登録がありません)"
-        : (isPlace ? "▼ 登録した場所から選ぶ" : "▼ 登録したICから選ぶ");
+        : (isPlace ? "▼ 登録した場所から選ぶ" : "▼ 登録から選ぶ");
       sel.appendChild(first);
       items.forEach(function (item) {
         const opt = document.createElement("option");
         // 場所なら住所を、ICならICの名前を入力欄に入れる
-        opt.value = isPlace ? item.address : item;
-        opt.textContent = isPlace ? item.name + "(" + item.address + ")" : item;
+        opt.value = isPlace ? item.address : item.name;
+        opt.textContent = isPlace ? item.name + "(" + item.address + ")" : item.name;
         sel.appendChild(opt);
       });
     });
@@ -542,15 +557,41 @@
     renderRegistry();
   });
 
-  $("ic-add").addEventListener("click", function () {
+  $("ic-add").addEventListener("click", async function () {
     const name = $("ic-name").value.trim();
+    const address = $("ic-address").value.trim();
+    const status = $("ic-status");
     if (name === "") {
       alert("ICの名前を入れてください");
       return;
     }
-    if (data.ics.indexOf(name) === -1) data.ics.push(name); // 同じ名前は2回登録しない
+    status.className = "status";
+    status.textContent = "ICの場所を探しています…";
+
+    // ICの位置を探す(住所があれば住所から、なければICの名前から)
+    let point = null;
+    try {
+      point = address ? await addressToPoint(address) : await findIcPoint(name);
+    } catch (e) { point = null; }
+
+    // 同じ名前がもうあれば上書き、なければ新しく追加
+    let ic = data.ics.find(function (x) { return x.name === name; });
+    if (!ic) {
+      ic = { name: name };
+      data.ics.push(ic);
+    }
+    if (point) {
+      ic.lon = point[0];
+      ic.lat = point[1];
+      status.className = "status ok";
+      status.textContent = name + " を登録しました(位置あり)";
+    } else {
+      status.className = "status ng";
+      status.textContent = name + " を登録しましたが、場所が見つかりませんでした(位置なし)。ICの住所を入れて、もう一度登録してください。";
+    }
     save();
     $("ic-name").value = "";
+    $("ic-address").value = "";
     renderRegistry();
   });
 
@@ -610,10 +651,41 @@
     return list[0].geometry.coordinates; // [経度, 緯度] の順で入っている
   }
 
-  // 2つの地点の、車で走る道のりの距離(km)を調べる(OSRMという無料サービスを使う)
-  async function roadDistanceKm(from, to) {
+  // ICの名前から位置を探す(OpenStreetMapの無料の検索サービスを使う)
+  // 見つかった場所が「IC(インターチェンジ)」のときだけ使う。違う場所をまちがって使わないため
+  async function findIcPoint(name) {
+    const base = name.replace(/(IC|ＩＣ|インターチェンジ|インター)$/, "").trim();
+    const words = [name, base + "IC", base + "インターチェンジ", base];
+    for (const q of words) {
+      const url = "https://nominatim.openstreetmap.org/search?format=json&countrycodes=jp&limit=10&q=" + encodeURIComponent(q);
+      const res = await fetch(url);
+      const list = await res.json();
+      const hit = list.find(function (r) { return r.type === "motorway_junction"; });
+      if (hit) return [parseFloat(hit.lon), parseFloat(hit.lat)];
+    }
+    return null;
+  }
+
+  // 登録したICの位置を取り出す(登録がない・位置なしなら null)
+  function icPoint(name) {
+    const ic = data.ics.find(function (x) { return x.name === name; });
+    return ic && ic.lon !== undefined ? [ic.lon, ic.lat] : null;
+  }
+
+  // 出発・到着の住所を取り出す
+  // 帰りで「行きの到着地から出発地へ戻る」にチェックがあれば、行きの住所を逆にして使う
+  function legAddresses(prefix) {
+    if (prefix === "back" && $("back-same").checked) {
+      return { from: $("go-to").value.trim(), to: $("go-from").value.trim() };
+    }
+    return { from: $(prefix + "-from").value.trim(), to: $(prefix + "-to").value.trim() };
+  }
+
+  // いくつかの地点を順番に通る、車の道のりの距離(km)を調べる(OSRMという無料サービスを使う)
+  // points は [[経度, 緯度], [経度, 緯度], ...] の形
+  async function roadDistanceKm(points) {
     const url = "https://router.project-osrm.org/route/v1/driving/" +
-      from[0] + "," + from[1] + ";" + to[0] + "," + to[1] + "?overview=false";
+      points.map(function (p) { return p[0] + "," + p[1]; }).join(";") + "?overview=false";
     const res = await fetch(url);
     const json = await res.json();
     if (json.code !== "Ok" || !json.routes || json.routes.length === 0) {
@@ -623,11 +695,11 @@
   }
 
   // 「距離を自動で調べる」ボタンの動き(行き・帰りで共通)
+  // 高速を使うときは「出発 → 乗るIC → 降りるIC → 到着」の順に通る道のりで計算する
   async function searchDistance(prefix) {
-    const from = $(prefix + "-from").value.trim();
-    const to = $(prefix + "-to").value.trim();
+    const addr = legAddresses(prefix);
     const status = $(prefix + "-status");
-    if (from === "" || to === "") {
+    if (addr.from === "" || addr.to === "") {
       status.className = "status ng";
       status.textContent = "出発と到着の住所を両方入れてください";
       return;
@@ -635,12 +707,29 @@
     status.className = "status";
     status.textContent = "調べています…";
     try {
-      const a = await addressToPoint(from);
-      const b = await addressToPoint(to);
-      const km = await roadDistanceKm(a, b);
+      const points = [await addressToPoint(addr.from)];
+      const via = [];     // 通ったIC
+      const missing = []; // 位置がわからなかったIC
+      if ($(prefix + "-hw").checked) {
+        [prefix + "-ic-in", prefix + "-ic-out"].forEach(function (id) {
+          const name = $(id).value.trim();
+          if (name === "") return;
+          const p = icPoint(name);
+          if (p) { points.push(p); via.push(name); } else { missing.push(name); }
+        });
+      }
+      points.push(await addressToPoint(addr.to));
+
+      const km = await roadDistanceKm(points);
       $(prefix + "-km").value = km.toFixed(1); // 小数第1位まで
-      status.className = "status ok";
-      status.textContent = "約 " + km.toFixed(1) + " km でした(目安です)";
+      let msg = "約 " + km.toFixed(1) + " km でした";
+      if (via.length > 0) msg += "(" + via.join("・") + " を通る道のり)";
+      msg += "。目安です。";
+      if (missing.length > 0) {
+        msg += " ※" + missing.join("・") + " は位置がわからないので、通らずに計算しました。登録欄でICの住所を入れて登録し直すと、通るようになります。";
+      }
+      status.className = missing.length > 0 ? "status ng" : "status ok";
+      status.textContent = msg;
       saveTrip();
       calc();
     } catch (e) {
@@ -651,13 +740,18 @@
   $("go-search").addEventListener("click", function () { searchDistance("go"); });
   $("back-search").addEventListener("click", function () { searchDistance("back"); });
 
-  // Googleマップのリンクを、入力された住所に合わせて作る
+  // Googleマップのリンクを、入力された住所とICに合わせて作る(ICは経由地にする)
   function updateMapLinks() {
     ["go", "back"].forEach(function (prefix) {
-      const from = $(prefix + "-from").value.trim();
-      const to = $(prefix + "-to").value.trim();
-      $(prefix + "-map").href = "https://www.google.com/maps/dir/?api=1&travelmode=driving" +
-        "&origin=" + encodeURIComponent(from) + "&destination=" + encodeURIComponent(to);
+      const addr = legAddresses(prefix);
+      let url = "https://www.google.com/maps/dir/?api=1&travelmode=driving" +
+        "&origin=" + encodeURIComponent(addr.from) + "&destination=" + encodeURIComponent(addr.to);
+      if ($(prefix + "-hw").checked) {
+        const ics = [$(prefix + "-ic-in").value.trim(), $(prefix + "-ic-out").value.trim()]
+          .filter(function (x) { return x !== ""; });
+        if (ics.length > 0) url += "&waypoints=" + encodeURIComponent(ics.join("|"));
+      }
+      $(prefix + "-map").href = url;
     });
   }
 
@@ -686,9 +780,10 @@
   function calc() {
     const car = data.cars[$("trip-car").value];
 
-    // 距離:帰りが「同じ道」なら行きと同じ距離にする
+    // 距離:帰りの距離が空なら、行きと同じ距離として計算する
     const goKm = num("go-km");
-    const backKm = $("back-same").checked ? goKm : num("back-km");
+    const backKmEmpty = $("back-km").value.trim() === "";
+    const backKm = backKmEmpty ? goKm : num("back-km");
     const totalKm = goKm + backKm;
 
     // ガソリン代 = 距離 ÷ 燃費 × 1Lの値段
@@ -717,7 +812,9 @@
     // ---- 表を作る ----
     const rows = [
       ["使う車", car ? car.name + "(" + FUEL_NAMES[car.fuel] + ")" : "未選択"],
-      ["走る距離(行き+帰り)", totalKm.toFixed(1) + " km"],
+      ["行きの距離", goKm.toFixed(1) + " km"],
+      ["帰りの距離" + (backKmEmpty ? "(行きと同じ)" : ""), backKm.toFixed(1) + " km"],
+      ["走る距離(合計)", totalKm.toFixed(1) + " km"],
       ["使うガソリン", liters.toFixed(1) + " L"],
       ["ガソリン代", yen(fuelCost)],
       ["高速代(行き)", yen(goToll)],
