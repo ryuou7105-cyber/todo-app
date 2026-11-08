@@ -103,6 +103,28 @@
     }
     #car-list li span { flex: 1; min-width: 0; word-break: break-all; }
 
+    /* 「登録から選ぶ」プルダウン(入力欄のすぐ上に置く) */
+    select.pick {
+      min-height: 44px;
+      font-size: 15px;
+      color: #2f6fed;
+      border-color: #c9d8fb;
+      background: #f5f8ff;
+      margin-bottom: 6px;
+    }
+
+    /* 登録した場所・ICの一覧(車の一覧と同じ見た目) */
+    .reg-list { list-style: none; padding: 0; margin: 12px 0 0; }
+    .reg-list li {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid #eee;
+    }
+    .reg-list li span { flex: 1; min-width: 0; word-break: break-all; }
+    .reg-list small { color: #666; }
+
     /* 計算結果 */
     .result-table { width: 100%; border-collapse: collapse; font-size: 16px; }
     .result-table td { padding: 8px 4px; border-bottom: 1px solid #eee; }
@@ -147,6 +169,27 @@
   </div>
 
   <!-- ========== 2. ガソリンの値段 ========== -->
+  <!-- ========== よく使う場所・ICの登録 ========== -->
+  <div class="card">
+    <h2>よく使う場所・ICを登録する</h2>
+    <p class="hint" style="margin-top:0">ここで登録しておくと、③で「登録から選ぶ」のプルダウンから選べるようになります。</p>
+
+    <h3>場所</h3>
+    <label for="place-name">名前</label>
+    <input type="text" id="place-name" placeholder="例:自宅">
+    <label for="place-address">住所</label>
+    <input type="text" id="place-address" placeholder="例:東京都千代田区丸の内1-9-1">
+    <button class="wide" id="place-add">場所を登録</button>
+    <ul class="reg-list" id="place-list"></ul>
+
+    <h3>IC(インターチェンジ)</h3>
+    <label for="ic-name">ICの名前</label>
+    <input type="text" id="ic-name" placeholder="例:東京IC">
+    <button class="wide" id="ic-add">ICを登録</button>
+    <ul class="reg-list" id="ic-list"></ul>
+    <p class="hint">同じ「乗るIC→降りるIC」で一度料金を入れると、次からは料金も自動で入ります。</p>
+  </div>
+
   <div class="card">
     <h2>② ガソリンの値段(1Lあたり)</h2>
     <div class="row">
@@ -180,8 +223,10 @@
     <!-- ---- 行き ---- -->
     <h3>行き</h3>
     <label for="go-from">出発する住所</label>
+    <select class="pick" data-kind="place" data-target="go-from" aria-label="登録した場所から選ぶ"></select>
     <input type="text" id="go-from" placeholder="例:東京都千代田区丸の内1-9-1">
     <label for="go-to">到着する住所</label>
+    <select class="pick" data-kind="place" data-target="go-to" aria-label="登録した場所から選ぶ"></select>
     <input type="text" id="go-to" placeholder="例:静岡県静岡市葵区追手町9-6">
     <button class="wide" id="go-search">距離を自動で調べる</button>
     <div class="status" id="go-status"></div>
@@ -194,10 +239,12 @@
       <div class="row">
         <div>
           <label for="go-ic-in">乗るIC</label>
+          <select class="pick" data-kind="ic" data-target="go-ic-in" aria-label="登録したICから選ぶ"></select>
           <input type="text" id="go-ic-in" placeholder="例:東京IC">
         </div>
         <div>
           <label for="go-ic-out">降りるIC</label>
+          <select class="pick" data-kind="ic" data-target="go-ic-out" aria-label="登録したICから選ぶ"></select>
           <input type="text" id="go-ic-out" placeholder="例:静岡IC">
         </div>
       </div>
@@ -220,8 +267,10 @@
     <label class="check"><input type="checkbox" id="back-same" checked> 帰りは行きと同じ道を逆に帰る</label>
     <div id="back-address-area">
       <label for="back-from">出発する住所</label>
+      <select class="pick" data-kind="place" data-target="back-from" aria-label="登録した場所から選ぶ"></select>
       <input type="text" id="back-from">
       <label for="back-to">到着する住所</label>
+      <select class="pick" data-kind="place" data-target="back-to" aria-label="登録した場所から選ぶ"></select>
       <input type="text" id="back-to">
       <button class="wide" id="back-search">距離を自動で調べる</button>
       <div class="status" id="back-status"></div>
@@ -235,10 +284,12 @@
       <div class="row">
         <div>
           <label for="back-ic-in">乗るIC</label>
+          <select class="pick" data-kind="ic" data-target="back-ic-in" aria-label="登録したICから選ぶ"></select>
           <input type="text" id="back-ic-in" placeholder="例:静岡IC">
         </div>
         <div>
           <label for="back-ic-out">降りるIC</label>
+          <select class="pick" data-kind="ic" data-target="back-ic-out" aria-label="登録したICから選ぶ"></select>
           <input type="text" id="back-ic-out" placeholder="例:東京IC">
         </div>
       </div>
@@ -318,6 +369,10 @@
   // ---------- 保存データ ----------
   // data の中身: { cars: [{name, kmpl, fuel}], prices: {...}, trip: {...} }
   let data = load();
+  // 前のバージョンで保存したデータには、場所・IC・料金メモがないので用意する
+  data.places = data.places || []; // [{name, address}]
+  data.ics = data.ics || [];       // ["東京IC", ...]
+  data.tolls = data.tolls || {};   // { "東京IC→静岡IC": 3790 }
 
   function load() {
     try {
@@ -402,6 +457,129 @@
     $("trip-car").value = data.cars.length - 1; // 今登録した車を選んでおく
     saveTrip();
     calc();
+  });
+
+  // =====================================================
+  //  よく使う場所・ICの登録
+  // =====================================================
+
+  // 一覧(削除ボタン付き)を作る共通の部品
+  function renderRegList(listId, items, textOf) {
+    const list = $(listId);
+    list.innerHTML = "";
+    items.forEach(function (item, index) {
+      const li = document.createElement("li");
+      const span = document.createElement("span");
+      textOf(item, span);
+      const del = document.createElement("button");
+      del.className = "red";
+      del.textContent = "削除";
+      del.addEventListener("click", function () {
+        items.splice(index, 1); // index番目を消す
+        save();
+        renderRegistry();
+      });
+      li.appendChild(span);
+      li.appendChild(del);
+      list.appendChild(li);
+    });
+  }
+
+  // 登録一覧と、③の「登録から選ぶ」プルダウンを作り直す
+  function renderRegistry() {
+    renderRegList("place-list", data.places, function (p, span) {
+      span.textContent = p.name + " ";
+      const small = document.createElement("small");
+      small.textContent = p.address;
+      span.appendChild(small);
+    });
+    renderRegList("ic-list", data.ics, function (ic, span) {
+      span.textContent = ic;
+    });
+
+    document.querySelectorAll("select.pick").forEach(function (sel) {
+      const isPlace = sel.dataset.kind === "place";
+      const items = isPlace ? data.places : data.ics;
+      sel.innerHTML = "";
+      const first = document.createElement("option");
+      first.value = "";
+      first.textContent = items.length === 0
+        ? "(まだ登録がありません)"
+        : (isPlace ? "▼ 登録した場所から選ぶ" : "▼ 登録したICから選ぶ");
+      sel.appendChild(first);
+      items.forEach(function (item) {
+        const opt = document.createElement("option");
+        // 場所なら住所を、ICならICの名前を入力欄に入れる
+        opt.value = isPlace ? item.address : item;
+        opt.textContent = isPlace ? item.name + "(" + item.address + ")" : item;
+        sel.appendChild(opt);
+      });
+    });
+  }
+
+  // プルダウンで選んだら、すぐ下の入力欄に入れる
+  document.querySelectorAll("select.pick").forEach(function (sel) {
+    sel.addEventListener("change", function () {
+      if (sel.value === "") return;
+      const target = $(sel.dataset.target);
+      target.value = sel.value;
+      sel.value = ""; // プルダウンは「選ぶ」の表示にもどしておく
+      target.dispatchEvent(new Event("input")); // 入力が変わったことを知らせる
+    });
+  });
+
+  $("place-add").addEventListener("click", function () {
+    const name = $("place-name").value.trim();
+    const address = $("place-address").value.trim();
+    if (name === "" || address === "") {
+      alert("名前と住所を両方入れてください");
+      return;
+    }
+    data.places.push({ name: name, address: address });
+    save();
+    $("place-name").value = "";
+    $("place-address").value = "";
+    renderRegistry();
+  });
+
+  $("ic-add").addEventListener("click", function () {
+    const name = $("ic-name").value.trim();
+    if (name === "") {
+      alert("ICの名前を入れてください");
+      return;
+    }
+    if (data.ics.indexOf(name) === -1) data.ics.push(name); // 同じ名前は2回登録しない
+    save();
+    $("ic-name").value = "";
+    renderRegistry();
+  });
+
+  // ---------- 高速料金を「乗るIC→降りるIC」ごとに覚える ----------
+  function tollKey(prefix) {
+    const a = $(prefix + "-ic-in").value.trim();
+    const b = $(prefix + "-ic-out").value.trim();
+    return (a && b) ? a + "→" + b : "";
+  }
+  ["go", "back"].forEach(function (prefix) {
+    // 料金を入れたら覚える
+    $(prefix + "-toll").addEventListener("input", function () {
+      const key = tollKey(prefix);
+      const toll = num(prefix + "-toll");
+      if (key && toll > 0) {
+        data.tolls[key] = toll;
+        save();
+      }
+    });
+    // ICが変わったら、覚えている料金を入れる
+    ["-ic-in", "-ic-out"].forEach(function (part) {
+      $(prefix + part).addEventListener("input", function () {
+        const key = tollKey(prefix);
+        if (key && data.tolls[key]) {
+          $(prefix + "-toll").value = data.tolls[key];
+          onTripChange();
+        }
+      });
+    });
   });
 
   // =====================================================
@@ -657,6 +835,7 @@
   //  ページを開いたときに最初にやること
   // =====================================================
   renderCars();
+  renderRegistry();
   restoreTrip();
   updateVisibility();
   updateMapLinks();
