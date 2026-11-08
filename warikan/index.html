@@ -238,6 +238,7 @@
       <a href="https://www.enecho.meti.go.jp/statistics/petroleum_and_lpgas/pl007/results.html" target="_blank" rel="noopener">最新の全国平均を見る</a>
       ときどき見て、数字を書きかえてください(入れた数字は覚えておきます)。
     </p>
+    <div class="status" id="file-status"></div>
   </div>
 
   <!-- ========== 3. 今回の移動 ========== -->
@@ -282,9 +283,11 @@
       </div>
       <label for="go-toll">高速料金(円)</label>
       <input type="number" id="go-toll" inputmode="numeric" min="0" placeholder="例:3790">
+      <div class="hint" id="go-file-toll"></div>
       <label for="go-discount">ETC割引</label>
       <select id="go-discount">
         <option value="0">割引なし</option>
+        <option value="file">割引あり(テキストの料金)</option>
         <option value="0.3">休日割引(30%引き)</option>
         <option value="0.3">深夜割引(30%引き)</option>
       </select>
@@ -328,9 +331,11 @@
       </div>
       <label for="back-toll">高速料金(円)</label>
       <input type="number" id="back-toll" inputmode="numeric" min="0" placeholder="例:3790">
+      <div class="hint" id="back-file-toll"></div>
       <label for="back-discount">ETC割引</label>
       <select id="back-discount">
         <option value="0">割引なし</option>
+        <option value="file">割引あり(テキストの料金)</option>
         <option value="0.3">休日割引(30%引き)</option>
         <option value="0.3">深夜割引(30%引き)</option>
       </select>
@@ -553,7 +558,8 @@
 
     document.querySelectorAll("select.pick").forEach(function (sel) {
       const isPlace = sel.dataset.kind === "place";
-      const items = isPlace ? data.places : data.ics;
+      // ICは「登録したIC」と「テキストに書いてあるIC」を合わせて、同じ名前は1つにする
+      const items = isPlace ? data.places : icNamesForPick();
       sel.innerHTML = "";
       const first = document.createElement("option");
       first.value = "";
@@ -564,8 +570,8 @@
       items.forEach(function (item) {
         const opt = document.createElement("option");
         // 場所なら住所を、ICならICの名前を入力欄に入れる
-        opt.value = isPlace ? item.address : item.name;
-        opt.textContent = isPlace ? item.name + "(" + item.address + ")" : item.name;
+        opt.value = isPlace ? item.address : item;
+        opt.textContent = isPlace ? item.name + "(" + item.address + ")" : item;
         sel.appendChild(opt);
       });
     });
@@ -650,17 +656,139 @@
         save();
       }
     });
-    // ICが変わったら、覚えている料金を入れる
+    // ICが変わったら料金を入れる(テキストに書いてあればそれを、なければ前に入れた料金を)
     ["-ic-in", "-ic-out"].forEach(function (part) {
       $(prefix + part).addEventListener("input", function () {
+        const ft = fileToll(prefix);
         const key = tollKey(prefix);
-        if (key && data.tolls[key]) {
+        if (ft) {
+          $(prefix + "-toll").value = ft.normal;
+          onTripChange();
+        } else if (key && data.tolls[key]) {
           $(prefix + "-toll").value = data.tolls[key];
           onTripChange();
         }
       });
     });
   });
+
+  // =====================================================
+  //  テキストファイル(text/gas.txt)から値段を読み込む
+  // =====================================================
+  // fileData の中身:
+  //   prices: { regular: 165, ... }
+  //   tolls:  { "玉島IC→庄原IC": { normal: 2060, discount: 1440 }, ... }
+  //   ics:    ["玉島IC", "庄原IC", ...]
+  let fileData = { prices: {}, tolls: {}, ics: [] };
+
+  // ICの名前を比べやすくする(空白を取る)
+  function icKey(a, b) { return a.replace(/\s/g, "") + "→" + b.replace(/\s/g, ""); }
+
+  // テキストの中身を読み取る
+  // ・「レギュラー 165」のような行 → ガソリンの値段
+  // ・「玉島IC 庄原IC 2060 3割引1440」のような行 → 高速代(通常と割引あり)
+  // ・それ以外の行(「ガソリン」「高速代」などの見出し)は読みとばす
+  function parseGasText(text) {
+    const result = { prices: {}, tolls: {}, ics: [] };
+    const fuelWords = { "レギュラー": "regular", "ハイオク": "premium", "軽油": "diesel" };
+    text.split(/\r?\n/).forEach(function (raw) {
+      // 全角の数字を半角に、「,」と「円」は消しておく
+      const line = raw
+        .replace(/[０-９]/g, function (c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); })
+        .replace(/[,，円]/g, "")
+        .trim();
+      if (line === "") return;
+
+      // ガソリンの行
+      for (const word in fuelWords) {
+        if (line.indexOf(word) === 0) {
+          const m = line.slice(word.length).match(/\d+(\.\d+)?/);
+          if (m) result.prices[fuelWords[word]] = parseFloat(m[0]);
+          return;
+        }
+      }
+
+      // 高速代の行:最初の2つが IC の名前、そのあとが料金
+      const parts = line.split(/\s+/); // \s には全角スペースもふくまれる
+      if (parts.length < 3 || /^\d/.test(parts[0]) || /^\d/.test(parts[1])) return;
+      const rest = parts.slice(2).join(" ");
+      const disc = rest.match(/割引\D*?(\d+)/);                       // 「3割引1440」の 1440
+      const normal = rest.replace(/\d*割引\D*?\d+/, "").match(/\d+/); // 残りの最初の数字が通常料金
+      if (!normal) return;
+      result.tolls[icKey(parts[0], parts[1])] = {
+        normal: parseInt(normal[0], 10),
+        discount: disc ? parseInt(disc[1], 10) : null
+      };
+      [parts[0], parts[1]].forEach(function (n) {
+        if (result.ics.indexOf(n) === -1) result.ics.push(n);
+      });
+    });
+    return result;
+  }
+
+  // 今選んでいるICの区間が、テキストに書いてあればその料金を返す(逆向きでもOK)
+  function fileToll(prefix) {
+    const a = $(prefix + "-ic-in").value.trim();
+    const b = $(prefix + "-ic-out").value.trim();
+    if (!a || !b) return null;
+    return fileData.tolls[icKey(a, b)] || fileData.tolls[icKey(b, a)] || null;
+  }
+
+  // プルダウン用のICの名前(登録したIC+テキストのIC)
+  function icNamesForPick() {
+    const names = data.ics.map(function (ic) { return ic.name; });
+    fileData.ics.forEach(function (n) { if (names.indexOf(n) === -1) names.push(n); });
+    return names;
+  }
+
+  // 料金欄の下に「テキストの料金」を表示する
+  function updateFileHints() {
+    ["go", "back"].forEach(function (prefix) {
+      const box = $(prefix + "-file-toll");
+      const ft = fileToll(prefix);
+      const wantFile = $(prefix + "-discount").value === "file";
+      if (ft) {
+        box.textContent = "テキストの料金:通常 " + yen(ft.normal) +
+          (ft.discount !== null ? " / 割引あり " + yen(ft.discount) : "(割引ありの料金は書いてありません)");
+      } else if (wantFile) {
+        box.textContent = "この区間はテキストに書いてないので、割引なしで計算しています。";
+      } else {
+        box.textContent = "";
+      }
+    });
+  }
+
+  // ページを開いたときにテキストを読み込む
+  async function loadGasFile() {
+    const status = $("file-status");
+    try {
+      // cache: "no-store" で、いつも最新のファイルを取りに行く
+      const res = await fetch("../text/gas.txt", { cache: "no-store" });
+      if (!res.ok) throw new Error("not found");
+      fileData = parseGasText(await res.text());
+    } catch (e) {
+      // ダウンロードしたファイルで開いたときなどは読めないので、手入力のまま使う
+      status.textContent = "";
+      return;
+    }
+    // ガソリンの値段を入れる(書いてない燃料は、前の値のまま)
+    const names = [];
+    ["regular", "premium", "diesel"].forEach(function (fuel) {
+      if (fileData.prices[fuel] !== undefined) {
+        data.prices[fuel] = fileData.prices[fuel];
+        $("price-" + fuel).value = fileData.prices[fuel];
+        names.push(FUEL_NAMES[fuel] + " " + fileData.prices[fuel] + "円");
+      }
+    });
+    save();
+    const tollCount = Object.keys(fileData.tolls).length;
+    status.className = "status ok";
+    status.textContent = "テキストから読み込みました:" +
+      (names.length ? names.join("・") : "ガソリン代なし") + "/高速代 " + tollCount + "区間";
+    renderRegistry();
+    updateFileHints();
+    calc();
+  }
 
   // =====================================================
   //  ② ガソリンの値段
@@ -810,7 +938,13 @@
   function tollOf(prefix) {
     if (!$(prefix + "-hw").checked) return 0; // 高速を使わないなら 0円
     const toll = num(prefix + "-toll");
-    const discount = parseFloat($(prefix + "-discount").value); // 0 か 0.3
+    const choice = $(prefix + "-discount").value;
+    if (choice === "file") {
+      // テキストの「割引あり」の料金を使う(書いてなければ割引なし)
+      const ft = fileToll(prefix);
+      return ft && ft.discount !== null ? ft.discount : toll;
+    }
+    const discount = parseFloat(choice); // 0 か 0.3
     return Math.round(toll * (1 - discount));
   }
 
@@ -940,6 +1074,7 @@
     saveTrip();
     updateVisibility();
     updateMapLinks();
+    updateFileHints();
     calc();
   }
 
@@ -1107,6 +1242,7 @@
   updateVisibility();
   updateMapLinks();
   calc();
+  loadGasFile(); // テキストの値段を読み込む(読めたら計算し直す)
 </script>
 </body>
 </html>
