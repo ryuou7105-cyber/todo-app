@@ -125,6 +125,28 @@
     .reg-list li span { flex: 1; min-width: 0; word-break: break-all; }
     .reg-list small { color: #666; }
 
+    /* 経由地の1行(プルダウン+住所+削除) */
+    .via-item {
+      border: 2px dashed #c9d8fb;
+      border-radius: 10px;
+      padding: 10px;
+      margin-top: 10px;
+    }
+    .via-item .via-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-weight: bold;
+      font-size: 15px;
+      margin-bottom: 6px;
+    }
+    .via-item .via-head button { min-height: 40px; font-size: 15px; }
+    button.outline {
+      background: #fff;
+      color: #2f6fed;
+      border: 2px solid #2f6fed;
+    }
+
     /* 保存したパターン */
     .pattern-box {
       background: #f5f8ff;
@@ -267,6 +289,10 @@
     <select class="pick" data-kind="place" data-target="go-to" aria-label="登録した場所から選ぶ"></select>
     <input type="text" id="go-to" placeholder="例:静岡県静岡市葵区追手町9-6">
 
+    <div id="go-via-list"></div>
+    <button class="wide outline" id="go-via-add" type="button">＋ 経由地を追加(乗せる人の家など)</button>
+    <p class="hint">経由地は、出発してから高速に乗るまでに、上から順に寄る場所として計算します。</p>
+
     <label class="check"><input type="checkbox" id="go-hw"> 行きに高速道路を使う</label>
     <div class="sub" id="go-hw-area">
       <div class="row">
@@ -313,6 +339,13 @@
       <label for="back-to">到着する住所</label>
       <select class="pick" data-kind="place" data-target="back-to" aria-label="登録した場所から選ぶ"></select>
       <input type="text" id="back-to">
+    </div>
+
+    <label class="check"><input type="checkbox" id="back-via-same" checked> 帰りも行きの経由地に寄る(逆の順番で)</label>
+    <div id="back-via-area">
+      <div id="back-via-list"></div>
+      <button class="wide outline" id="back-via-add" type="button">＋ 帰りの経由地を追加</button>
+      <p class="hint">帰りの経由地は、高速を降りてから、上から順に寄る場所として計算します。</p>
     </div>
 
     <label class="check"><input type="checkbox" id="back-hw"> 帰りに高速道路を使う</label>
@@ -413,7 +446,7 @@
   const TRIP_FIELDS = [
     "trip-car", "go-from", "go-to", "go-km", "go-hw", "go-ic-in", "go-ic-out", "go-toll", "go-discount",
     "back-same", "back-from", "back-to", "back-km", "back-hw", "back-ic-in", "back-ic-out", "back-toll",
-    "back-discount", "other", "people", "rounding", "driver-pays"
+    "back-discount", "other", "people", "rounding", "driver-pays", "back-via-same"
   ];
 
   // id から画面の部品を取り出す短い書き方
@@ -556,7 +589,12 @@
       span.appendChild(small);
     });
 
-    document.querySelectorAll("select.pick").forEach(function (sel) {
+    document.querySelectorAll("select.pick").forEach(fillPick);
+  }
+
+  // 「登録から選ぶ」プルダウン1つの中身を作る
+  function fillPick(sel) {
+    {
       const isPlace = sel.dataset.kind === "place";
       // ICは「登録したIC」と「テキストに書いてあるIC」を合わせて、同じ名前は1つにする
       const items = isPlace ? data.places : icNamesForPick();
@@ -574,7 +612,7 @@
         opt.textContent = isPlace ? item.name + "(" + item.address + ")" : item;
         sel.appendChild(opt);
       });
-    });
+    }
   }
 
   // プルダウンで選んだら、すぐ下の入力欄に入れる
@@ -791,6 +829,87 @@
   }
 
   // =====================================================
+  //  経由地(乗せる人の家など)
+  // =====================================================
+  // 行き・帰りそれぞれの経由地の住所を、順番どおりに入れておく
+  let vias = { go: [], back: [] };
+
+  // 経由地の入力欄を作り直す
+  function renderVias(prefix) {
+    const box = $(prefix + "-via-list");
+    box.innerHTML = "";
+    vias[prefix].forEach(function (address, index) {
+      const item = document.createElement("div");
+      item.className = "via-item";
+
+      // 見出し「経由地1」と削除ボタン
+      const head = document.createElement("div");
+      head.className = "via-head";
+      const title = document.createElement("span");
+      title.textContent = "経由地" + (index + 1);
+      const del = document.createElement("button");
+      del.type = "button";
+      del.className = "red";
+      del.textContent = "削除";
+      del.addEventListener("click", function () {
+        vias[prefix].splice(index, 1); // index番目の経由地を消す
+        renderVias(prefix);
+        onTripChange();
+      });
+      head.appendChild(title);
+      head.appendChild(del);
+
+      // 登録した場所から選ぶプルダウン
+      const pick = document.createElement("select");
+      pick.className = "pick";
+      pick.dataset.kind = "place";
+      pick.setAttribute("aria-label", "登録した場所から選ぶ");
+      fillPick(pick);
+
+      // 住所の入力欄
+      const input = document.createElement("input");
+      input.type = "text";
+      input.placeholder = "例:乗せる人の家の住所";
+      input.value = address;
+      input.setAttribute("aria-label", "経由地" + (index + 1) + "の住所");
+      input.addEventListener("input", function () {
+        vias[prefix][index] = input.value;
+        onTripChange();
+      });
+      pick.addEventListener("change", function () {
+        if (pick.value === "") return;
+        input.value = pick.value;
+        pick.value = "";
+        input.dispatchEvent(new Event("input"));
+      });
+
+      item.appendChild(head);
+      item.appendChild(pick);
+      item.appendChild(input);
+      box.appendChild(item);
+    });
+  }
+
+  ["go", "back"].forEach(function (prefix) {
+    $(prefix + "-via-add").addEventListener("click", function () {
+      vias[prefix].push(""); // 空の経由地を1つ足す
+      renderVias(prefix);
+      onTripChange();
+      // 足した欄にすぐ入力できるようにする
+      const inputs = $(prefix + "-via-list").querySelectorAll("input");
+      inputs[inputs.length - 1].focus();
+    });
+  });
+
+  // 計算に使う経由地の一覧(空の欄はのぞく)
+  // 帰りで「行きの経由地に寄る」にチェックがあれば、行きの経由地を逆の順番で使う
+  function viaList(prefix) {
+    let list = vias[prefix];
+    if (prefix === "back" && $("back-via-same").checked) list = vias.go.slice().reverse();
+    return list.map(function (x) { return x.trim(); }).filter(function (x) { return x !== ""; });
+  }
+
+  // =====================================================
   //  ② ガソリンの値段
   // =====================================================
   ["regular", "premium", "diesel"].forEach(function (fuel) {
@@ -862,7 +981,8 @@
   }
 
   // 「距離を自動で調べる」ボタンの動き(行き・帰りで共通)
-  // 高速を使うときは「出発 → 乗るIC → 降りるIC → 到着」の順に通る道のりで計算する
+  // 行き:出発 → 経由地 → 乗るIC → 降りるIC → 到着
+  // 帰り:出発 → 乗るIC → 降りるIC → 経由地 → 到着  の順に通る道のりで計算する
   async function searchDistance(prefix) {
     const addr = legAddresses(prefix);
     const status = $(prefix + "-status");
@@ -874,23 +994,36 @@
     status.className = "status";
     status.textContent = "調べています…";
     try {
-      const points = [await addressToPoint(addr.from)];
       const via = [];     // 通ったIC
       const missing = []; // 位置がわからなかったIC
+
+      // 経由地の住所を緯度・経度に変える
+      const viaNames = viaList(prefix);
+      const viaPoints = [];
+      for (const v of viaNames) viaPoints.push(await addressToPoint(v));
+
+      // ICの位置を集める
+      const icPoints = [];
       if ($(prefix + "-hw").checked) {
         [prefix + "-ic-in", prefix + "-ic-out"].forEach(function (id) {
           const name = $(id).value.trim();
           if (name === "") return;
           const p = icPoint(name);
-          if (p) { points.push(p); via.push(name); } else { missing.push(name); }
+          if (p) { icPoints.push(p); via.push(name); } else { missing.push(name); }
         });
       }
-      points.push(await addressToPoint(addr.to));
+
+      // 通る順番に並べる(行きは経由地が先、帰りはICが先)
+      const middle = prefix === "go" ? viaPoints.concat(icPoints) : icPoints.concat(viaPoints);
+      const points = [await addressToPoint(addr.from)].concat(middle, [await addressToPoint(addr.to)]);
 
       const km = await roadDistanceKm(points);
       $(prefix + "-km").value = km.toFixed(1); // 小数第1位まで
       let msg = "約 " + km.toFixed(1) + " km でした";
-      if (via.length > 0) msg += "(" + via.join("・") + " を通る道のり)";
+      const passed = [];
+      if (viaNames.length > 0) passed.push("経由地" + viaNames.length + "か所");
+      if (via.length > 0) passed.push(via.join("・"));
+      if (passed.length > 0) msg += "(" + passed.join("と") + " を通る道のり)";
       msg += "。目安です。";
       if (missing.length > 0) {
         msg += " ※" + missing.join("・") + " は位置がわからないので、通らずに計算しました。登録欄でICの住所を入れて登録し直すと、通るようになります。";
@@ -913,11 +1046,14 @@
       const addr = legAddresses(prefix);
       let url = "https://www.google.com/maps/dir/?api=1&travelmode=driving" +
         "&origin=" + encodeURIComponent(addr.from) + "&destination=" + encodeURIComponent(addr.to);
+      let ics = [];
       if ($(prefix + "-hw").checked) {
-        const ics = [$(prefix + "-ic-in").value.trim(), $(prefix + "-ic-out").value.trim()]
+        ics = [$(prefix + "-ic-in").value.trim(), $(prefix + "-ic-out").value.trim()]
           .filter(function (x) { return x !== ""; });
-        if (ics.length > 0) url += "&waypoints=" + encodeURIComponent(ics.join("|"));
       }
+      // 経由地とICを、通る順番に並べる
+      const stops = prefix === "go" ? viaList("go").concat(ics) : ics.concat(viaList("back"));
+      if (stops.length > 0) url += "&waypoints=" + encodeURIComponent(stops.join("|"));
       $(prefix + "-map").href = url;
     });
   }
@@ -929,6 +1065,7 @@
     $("go-hw-area").style.display = $("go-hw").checked ? "block" : "none";
     $("back-hw-area").style.display = $("back-hw").checked ? "block" : "none";
     $("back-address-area").style.display = $("back-same").checked ? "none" : "block";
+    $("back-via-area").style.display = $("back-via-same").checked ? "none" : "block";
   }
 
   // =====================================================
@@ -1033,6 +1170,8 @@
     if ($("go-from").value && $("go-to").value) {
       lines.push("行き:" + $("go-from").value + " → " + $("go-to").value);
     }
+    if (viaList("go").length > 0) lines.push("経由(行き):" + viaList("go").join(" → "));
+    if (viaList("back").length > 0) lines.push("経由(帰り):" + viaList("back").join(" → "));
     if ($("go-hw").checked) lines.push("高速(行き):" + $("go-ic-in").value + " → " + $("go-ic-out").value + " " + yen(goToll));
     if ($("back-hw").checked) lines.push("高速(帰り):" + $("back-ic-in").value + " → " + $("back-ic-out").value + " " + yen(backToll));
     lines.push("距離:" + totalKm.toFixed(1) + "km / ガソリン代:" + yen(fuelCost));
@@ -1053,6 +1192,8 @@
       const el = $(id);
       data.trip[id] = el.type === "checkbox" ? el.checked : el.value;
     });
+    data.trip["go-via"] = vias.go.slice();
+    data.trip["back-via"] = vias.back.slice();
     save();
   }
 
@@ -1063,6 +1204,13 @@
       if (el.type === "checkbox") el.checked = data.trip[id];
       else el.value = data.trip[id];
     });
+    // 経由地(前のバージョンのデータにはないので、なければ空にする)
+    vias = {
+      go: (data.trip["go-via"] || []).slice(),
+      back: (data.trip["back-via"] || []).slice()
+    };
+    renderVias("go");
+    renderVias("back");
   }
 
   // 入力が変わるたびに:保存 → 表示切りかえ → 計算
@@ -1218,7 +1366,7 @@
     data.trip = {};
     TRIP_FIELDS.forEach(function (id) {
       const el = $(id);
-      if (el.type === "checkbox") el.checked = (id === "back-same" || id === "driver-pays");
+      if (el.type === "checkbox") el.checked = (id === "back-same" || id === "driver-pays" || id === "back-via-same");
       else if (el.tagName === "SELECT") el.selectedIndex = 0;
       else el.value = "";
     });
@@ -1227,6 +1375,9 @@
     $("rounding").value = "100";
     ["go-status", "back-status", "copy-status", "pattern-status"].forEach(function (id) { $(id).textContent = ""; });
     $("pattern-name").value = "";
+    vias = { go: [], back: [] };
+    renderVias("go");
+    renderVias("back");
     loadedPattern = null;
     renderPatterns();
     onTripChange();
