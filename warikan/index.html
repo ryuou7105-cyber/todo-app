@@ -1,365 +1,1399 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>割り勘計算 - 高機能版</title>
+  <meta charset="UTF-8">
+  <!-- スマホの画面幅に合わせる設定 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>交通費わりかん</title>
+
+  <style>
+    /* ===== 見た目(デザイン)の設定 ===== */
+    body {
+      margin: 0;
+      padding: 16px;
+      background-color: #f2f4f8;
+      font-family: sans-serif;
+      font-size: 17px;
+      color: #222;
+    }
+    .container {
+      max-width: 640px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    h1 { font-size: 26px; text-align: center; margin: 8px 0; }
+    h2 { font-size: 20px; margin: 0 0 12px; }
+    h3 { font-size: 17px; margin: 16px 0 8px; }
+
+    /* 白いカード(区切りの箱) */
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    /* 入力欄の共通デザイン(指で押しやすい高さ) */
+    input[type="text"], input[type="number"], select {
+      width: 100%;
+      box-sizing: border-box;
+      min-height: 48px;
+      font-size: 17px;
+      padding: 8px 12px;
+      border: 2px solid #ccc;
+      border-radius: 8px;
+      background: #fff;
+    }
+    label { display: block; margin: 10px 0 4px; font-weight: bold; font-size: 15px; }
+
+    /* チェックボックスと文字を横に並べる */
+    .check {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: bold;
+      margin: 12px 0;
+      min-height: 44px;
+    }
+    .check input { width: 26px; height: 26px; margin: 0; flex-shrink: 0; }
+
+    /* 2つの入力欄を横に並べる(スマホで狭いときは縦) */
+    .row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .row > div { flex: 1 1 140px; min-width: 0; }
+
+    /* ボタン */
+    button {
+      min-height: 48px;
+      font-size: 17px;
+      padding: 0 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      color: #fff;
+      background: #2f6fed;
+    }
+    button.wide { width: 100%; margin-top: 12px; }
+    button.red { background: #e5484d; }
+    button.gray { background: #6b7280; }
+
+    /* 小さい説明文 */
+    .hint { font-size: 14px; color: #666; margin: 6px 0 0; line-height: 1.6; }
+    .hint a { color: #2f6fed; }
+    .status { font-size: 15px; margin-top: 8px; min-height: 1em; }
+    .status.ok { color: #1a7f37; }
+    .status.ng { color: #c62828; }
+
+    /* 高速道路の入力エリア(使うときだけ表示) */
+    .sub {
+      border-left: 4px solid #2f6fed;
+      padding-left: 12px;
+      margin-top: 4px;
+    }
+
+    /* 登録した車の一覧 */
+    #car-list { list-style: none; padding: 0; margin: 12px 0 0; }
+    #car-list li {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid #eee;
+    }
+    #car-list li span { flex: 1; min-width: 0; word-break: break-all; }
+
+    /* 「登録から選ぶ」プルダウン(入力欄のすぐ上に置く) */
+    select.pick {
+      min-height: 44px;
+      font-size: 15px;
+      color: #2f6fed;
+      border-color: #c9d8fb;
+      background: #f5f8ff;
+      margin-bottom: 6px;
+    }
+
+    /* 登録した場所・ICの一覧(車の一覧と同じ見た目) */
+    .reg-list { list-style: none; padding: 0; margin: 12px 0 0; }
+    .reg-list li {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid #eee;
+    }
+    .reg-list li span { flex: 1; min-width: 0; word-break: break-all; }
+    .reg-list small { color: #666; }
+
+    /* 経由地の1行(プルダウン+住所+削除) */
+    .via-item {
+      border: 2px dashed #c9d8fb;
+      border-radius: 10px;
+      padding: 10px;
+      margin-top: 10px;
+    }
+    .via-item .via-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-weight: bold;
+      font-size: 15px;
+      margin-bottom: 6px;
+    }
+    .via-item .via-head button { min-height: 40px; font-size: 15px; }
+    button.outline {
+      background: #fff;
+      color: #2f6fed;
+      border: 2px solid #2f6fed;
+    }
+
+    /* 保存したパターン */
+    .pattern-box {
+      background: #f5f8ff;
+      border: 2px solid #c9d8fb;
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 8px;
+    }
+    .pattern-box label { margin-top: 0; }
+    .pattern-row { display: flex; gap: 8px; }
+    .pattern-row select, .pattern-row input { flex: 1; min-width: 0; }
+    .compare {
+      margin-top: 10px;
+      font-size: 15px;
+      line-height: 1.7;
+    }
+    .compare .up { color: #c62828; font-weight: bold; }
+    .compare .down { color: #1a7f37; font-weight: bold; }
+
+    /* 計算結果 */
+    .result-table { width: 100%; border-collapse: collapse; font-size: 16px; }
+    .result-table td { padding: 8px 4px; border-bottom: 1px solid #eee; }
+    .result-table td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+    .total td { font-weight: bold; }
+    .per-person {
+      margin-top: 16px;
+      padding: 16px;
+      background: #e8f0fe;
+      border-radius: 10px;
+      text-align: center;
+    }
+    .per-person .big { font-size: 34px; font-weight: bold; color: #2f6fed; }
+  </style>
 </head>
 <body>
 <div class="container">
-  <header>
-    <h1>💰 割り勘計算</h1>
-    <button class="theme-toggle" onclick="toggleTheme()" title="テーマ切替">🌙</button>
-  </header>
+  <h1>交通費わりかん</h1>
 
+  <!-- ========== 1. 車の登録 ========== -->
   <div class="card">
-    <h2>金額入力</h2>
-    <div class="field">
-      <label>合計金額（円）</label>
-      <input type="number" id="totalAmount" placeholder="10000" min="0" step="1">
-    </div>
+    <h2>① 車を登録する</h2>
+    <label for="car-name">車の名前</label>
+    <input type="text" id="car-name" placeholder="例:パパのプリウス">
     <div class="row">
-      <div class="field">
-        <label>税率（%）</label>
-        <select id="taxRate">
-          <option value="0">なし（税込）</option>
-          <option value="8">8%</option>
-          <option value="10" selected>10%</option>
+      <div>
+        <label for="car-kmpl">燃費(km/L)</label>
+        <input type="number" id="car-kmpl" placeholder="例:20" inputmode="decimal" min="1" step="0.1">
+      </div>
+      <div>
+        <label for="car-fuel">燃料</label>
+        <select id="car-fuel">
+          <option value="regular">レギュラー</option>
+          <option value="premium">ハイオク</option>
+          <option value="diesel">軽油</option>
         </select>
       </div>
-      <div class="field">
-        <label>サービス料（%）</label>
-        <input type="number" id="serviceRate" value="0" min="0" step="0.1">
+    </div>
+    <button class="wide" id="car-add">車を登録</button>
+    <p class="hint">燃費は、カタログの数字より少し低め(実際に走ったときの数字)にすると、実際の値段に近くなります。</p>
+    <ul id="car-list"></ul>
+  </div>
+
+  <!-- ========== 2. ガソリンの値段 ========== -->
+  <!-- ========== よく使う場所・ICの登録 ========== -->
+  <div class="card">
+    <h2>よく使う場所・ICを登録する</h2>
+    <p class="hint" style="margin-top:0">ここで登録しておくと、③で「登録から選ぶ」のプルダウンから選べるようになります。</p>
+
+    <h3>場所</h3>
+    <label for="place-name">名前</label>
+    <input type="text" id="place-name" placeholder="例:自宅">
+    <label for="place-address">住所</label>
+    <input type="text" id="place-address" placeholder="例:東京都千代田区丸の内1-9-1">
+    <button class="wide" id="place-add">場所を登録</button>
+    <ul class="reg-list" id="place-list"></ul>
+
+    <h3>IC(インターチェンジ)</h3>
+    <label for="ic-name">ICの名前</label>
+    <input type="text" id="ic-name" placeholder="例:東京IC">
+    <label for="ic-address">ICの住所(わからなければ空でOK)</label>
+    <input type="text" id="ic-address" placeholder="例:東京都世田谷区砧公園">
+    <button class="wide" id="ic-add">ICを登録</button>
+    <div class="status" id="ic-status"></div>
+    <ul class="reg-list" id="ic-list"></ul>
+    <p class="hint">
+      登録するときに、ICの場所(地図上の位置)を自動で探します。場所がわかったICは「位置あり」になり、
+      距離を調べるときにそのICを通る道のりで計算します。「位置なし」になったら、Googleマップで
+      ICの住所を調べて入れ、もう一度登録してください。<br>
+      同じ「乗るIC→降りるIC」で一度料金を入れると、次からは料金も自動で入ります。
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>② ガソリンの値段(1Lあたり)</h2>
+    <div class="row">
+      <div>
+        <label for="price-regular">レギュラー</label>
+        <input type="number" id="price-regular" inputmode="decimal" min="0">
+      </div>
+      <div>
+        <label for="price-premium">ハイオク</label>
+        <input type="number" id="price-premium" inputmode="decimal" min="0">
+      </div>
+      <div>
+        <label for="price-diesel">軽油</label>
+        <input type="number" id="price-diesel" inputmode="decimal" min="0">
       </div>
     </div>
-    <div class="split-info" id="subtotalInfo"></div>
+    <p class="hint">
+      全国平均は国(資源エネルギー庁)が毎週水曜日に発表しています。
+      <a href="https://www.enecho.meti.go.jp/statistics/petroleum_and_lpgas/pl007/results.html" target="_blank" rel="noopener">最新の全国平均を見る</a>
+      ときどき見て、数字を書きかえてください(入れた数字は覚えておきます)。
+    </p>
+    <div class="status" id="file-status"></div>
   </div>
 
+  <!-- ========== 3. 今回の移動 ========== -->
   <div class="card">
-    <h2>メンバー</h2>
-    <div id="memberList"></div>
-    <button class="btn-add" onclick="addMember()">＋ メンバー追加</button>
-  </div>
+    <h2>③ 今回の移動</h2>
 
-  <div class="card">
-    <h2>分割方法</h2>
-    <div class="tabs">
-      <button class="active" data-mode="equal" onclick="setMode('equal')">均等割り</button>
-      <button data-mode="weight" onclick="setMode('weight')">傾斜配分</button>
-      <button data-mode="custom" onclick="setMode('custom')">個別入力</button>
+    <div class="pattern-box">
+      <label for="pattern-select">保存したパターンを呼び出す</label>
+      <div class="pattern-row">
+        <select id="pattern-select"></select>
+        <button class="red" id="pattern-delete">削除</button>
+      </div>
+      <div class="compare" id="pattern-compare"></div>
+      <p class="hint">呼び出したあと、ガソリンの値段や人数などを変えると、結果がすぐ計算し直されます。保存したときとの差もここに出ます。</p>
     </div>
-    <div class="field">
-      <label>端数処理</label>
-      <select id="roundMode">
-        <option value="roundUp">切り上げ（多めに集める）</option>
-        <option value="roundDown" selected>切り捨て</option>
-        <option value="round">四捨五入</option>
+
+    <label for="trip-car">使う車</label>
+    <select id="trip-car"></select>
+
+    <!-- ---- 行き ---- -->
+    <h3>行き</h3>
+    <label for="go-from">出発する住所</label>
+    <select class="pick" data-kind="place" data-target="go-from" aria-label="登録した場所から選ぶ"></select>
+    <input type="text" id="go-from" placeholder="例:東京都千代田区丸の内1-9-1">
+    <label for="go-to">到着する住所</label>
+    <select class="pick" data-kind="place" data-target="go-to" aria-label="登録した場所から選ぶ"></select>
+    <input type="text" id="go-to" placeholder="例:静岡県静岡市葵区追手町9-6">
+
+    <div id="go-via-list"></div>
+    <button class="wide outline" id="go-via-add" type="button">＋ 経由地を追加(乗せる人の家など)</button>
+    <p class="hint">経由地は、出発してから高速に乗るまでに、上から順に寄る場所として計算します。</p>
+
+    <label class="check"><input type="checkbox" id="go-hw"> 行きに高速道路を使う</label>
+    <div class="sub" id="go-hw-area">
+      <div class="row">
+        <div>
+          <label for="go-ic-in">乗るIC</label>
+          <select class="pick" data-kind="ic" data-target="go-ic-in" aria-label="登録したICから選ぶ"></select>
+          <input type="text" id="go-ic-in" placeholder="例:東京IC">
+        </div>
+        <div>
+          <label for="go-ic-out">降りるIC</label>
+          <select class="pick" data-kind="ic" data-target="go-ic-out" aria-label="登録したICから選ぶ"></select>
+          <input type="text" id="go-ic-out" placeholder="例:静岡IC">
+        </div>
+      </div>
+      <label for="go-toll">高速料金(円)</label>
+      <input type="number" id="go-toll" inputmode="numeric" min="0" placeholder="例:3790">
+      <div class="hint" id="go-file-toll"></div>
+      <label for="go-discount">ETC割引</label>
+      <select id="go-discount">
+        <option value="0">割引なし</option>
+        <option value="file">割引あり(テキストの料金)</option>
+        <option value="0.3">休日割引(30%引き)</option>
+        <option value="0.3">深夜割引(30%引き)</option>
       </select>
-      <div class="hint">※均等割り時の1人あたりの端数処理に適用されます</div>
+      <p class="hint">
+        料金は <a href="https://www.driveplaza.com/" target="_blank" rel="noopener">ドラぷら(NEXCOの料金検索)</a> で、ICの名前と日時を入れると調べられます。
+        ETC割引が使えるかどうかは、同じ区間でも曜日や時間で変わります。ドラぷらで「ETC料金」を確かめてから選んでください。割引後の料金をそのまま入れたときは「割引なし」を選びます。
+      </p>
     </div>
+
+    <button class="wide" id="go-search">行きの距離を自動で調べる</button>
+    <div class="status" id="go-status"></div>
+    <label for="go-km">行きの距離(km)</label>
+    <input type="number" id="go-km" inputmode="decimal" min="0" placeholder="自動で入ります。手で入れてもOK">
+    <p class="hint"><a id="go-map" href="#" target="_blank" rel="noopener">Googleマップで道順と距離を確かめる</a></p>
+
+    <!-- ---- 帰り ---- -->
+    <h3>帰り</h3>
+    <label class="check"><input type="checkbox" id="back-same" checked> 行きの到着地から、行きの出発地へ戻る</label>
+    <div id="back-address-area">
+      <label for="back-from">出発する住所</label>
+      <select class="pick" data-kind="place" data-target="back-from" aria-label="登録した場所から選ぶ"></select>
+      <input type="text" id="back-from">
+      <label for="back-to">到着する住所</label>
+      <select class="pick" data-kind="place" data-target="back-to" aria-label="登録した場所から選ぶ"></select>
+      <input type="text" id="back-to">
+    </div>
+
+    <label class="check"><input type="checkbox" id="back-via-same" checked> 帰りも行きの経由地に寄る(逆の順番で)</label>
+    <div id="back-via-area">
+      <div id="back-via-list"></div>
+      <button class="wide outline" id="back-via-add" type="button">＋ 帰りの経由地を追加</button>
+      <p class="hint">帰りの経由地は、高速を降りてから、上から順に寄る場所として計算します。</p>
+    </div>
+
+    <label class="check"><input type="checkbox" id="back-hw"> 帰りに高速道路を使う</label>
+    <div class="sub" id="back-hw-area">
+      <div class="row">
+        <div>
+          <label for="back-ic-in">乗るIC</label>
+          <select class="pick" data-kind="ic" data-target="back-ic-in" aria-label="登録したICから選ぶ"></select>
+          <input type="text" id="back-ic-in" placeholder="例:静岡IC">
+        </div>
+        <div>
+          <label for="back-ic-out">降りるIC</label>
+          <select class="pick" data-kind="ic" data-target="back-ic-out" aria-label="登録したICから選ぶ"></select>
+          <input type="text" id="back-ic-out" placeholder="例:東京IC">
+        </div>
+      </div>
+      <label for="back-toll">高速料金(円)</label>
+      <input type="number" id="back-toll" inputmode="numeric" min="0" placeholder="例:3790">
+      <div class="hint" id="back-file-toll"></div>
+      <label for="back-discount">ETC割引</label>
+      <select id="back-discount">
+        <option value="0">割引なし</option>
+        <option value="file">割引あり(テキストの料金)</option>
+        <option value="0.3">休日割引(30%引き)</option>
+        <option value="0.3">深夜割引(30%引き)</option>
+      </select>
+    </div>
+
+    <button class="wide" id="back-search">帰りの距離を自動で調べる</button>
+    <div class="status" id="back-status"></div>
+    <label for="back-km">帰りの距離(km)</label>
+    <input type="number" id="back-km" inputmode="decimal" min="0" placeholder="空のときは行きと同じ距離で計算します">
+    <p class="hint"><a id="back-map" href="#" target="_blank" rel="noopener">Googleマップで道順と距離を確かめる</a></p>
+
+    <!-- ---- その他 ---- -->
+    <h3>そのほか</h3>
+    <label for="other">駐車場代など(円)</label>
+    <input type="number" id="other" inputmode="numeric" min="0" placeholder="なければ空のままでOK">
+
+    <div class="row">
+      <div>
+        <label for="people">乗る人数(運転手もふくむ)</label>
+        <input type="number" id="people" inputmode="numeric" min="1" value="2">
+      </div>
+      <div>
+        <label for="rounding">1人分の端数</label>
+        <select id="rounding">
+          <option value="1">1円単位</option>
+          <option value="10">10円単位</option>
+          <option value="100" selected>100円単位</option>
+        </select>
+      </div>
+    </div>
+    <label class="check"><input type="checkbox" id="driver-pays" checked> 運転手もお金を出す</label>
   </div>
 
-  <button class="btn btn-primary" onclick="calculate()">計算する</button>
-
-  <div class="card hidden" id="resultCard">
-    <h2>計算結果</h2>
-    <div class="result-total" id="resultTotal"></div>
-    <ul class="result-list" id="resultList"></ul>
-    <button class="btn btn-secondary" onclick="copyResult()">📋 結果をコピー</button>
-    <div class="copy-msg hidden" id="copyMsg">コピーしました！</div>
-  </div>
-
+  <!-- ========== 4. 結果 ========== -->
   <div class="card">
-    <h2>履歴</h2>
-    <div id="historyList"></div>
-    <button class="btn btn-secondary" onclick="clearHistory()">履歴をクリア</button>
+    <h2>④ 結果</h2>
+    <table class="result-table">
+      <tbody id="result-body"></tbody>
+    </table>
+    <div class="per-person">
+      <div id="per-label">1人あたり</div>
+      <div class="big" id="per-person">0円</div>
+      <div class="hint" id="per-note"></div>
+    </div>
+    <div class="pattern-box" style="margin-top:16px">
+      <label for="pattern-name">この内容をパターンとして保存</label>
+      <div class="pattern-row">
+        <input type="text" id="pattern-name" placeholder="例:実家へ帰省">
+        <button id="pattern-save">保存</button>
+      </div>
+      <div class="status" id="pattern-status"></div>
+      <p class="hint">同じ名前で保存すると、新しい内容に上書きされます。</p>
+    </div>
+    <button class="wide" id="copy">結果をコピー(LINEなどに貼れます)</button>
+    <button class="wide gray" id="reset">今回の移動を空にする</button>
+    <div class="status" id="copy-status"></div>
   </div>
 </div>
-<style>
-  :root {
-    --bg: #f5f7fa; --card: #ffffff; --text: #1a202c; --sub: #718096;
-    --primary: #3182ce; --primary-hover: #2b6cb0; --border: #e2e8f0;
-    --danger: #e53e3e; --success: #38a169; --accent: #edf2f7;
-  }
-  [data-theme="dark"] {
-    --bg: #1a202c; --card: #2d3748; --text: #f7fafc; --sub: #a0aec0;
-    --primary: #63b3ed; --primary-hover: #4299e1; --border: #4a5568; --accent: #4a5568;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
-    background: var(--bg); color: var(--text); line-height: 1.6; padding: 16px;
-    transition: background .2s, color .2s;
-  }
-  .container { max-width: 720px; margin: 0 auto; }
-  header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-  h1 { font-size: 1.5rem; font-weight: 700; }
-  .theme-toggle {
-    background: var(--card); border: 1px solid var(--border);
-    padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 1.1rem;
-  }
-  .card {
-    background: var(--card); border-radius: 12px; padding: 20px;
-    box-shadow: 0 1px 3px rgba(0,0,0,.08); margin-bottom: 16px;
-    border: 1px solid var(--border);
-  }
-  .card h2 { font-size: 1rem; margin-bottom: 14px; color: var(--sub); font-weight: 600; }
-  label { display: block; font-size: .875rem; color: var(--sub); margin-bottom: 6px; }
-  input[type="number"], input[type="text"], select {
-    width: 100%; padding: 10px 12px; font-size: 1rem;
-    border: 1px solid var(--border); border-radius: 8px;
-    background: var(--bg); color: var(--text); transition: border-color .15s;
-  }
-  input:focus, select:focus { outline: none; border-color: var(--primary); }
-  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
-  .field { margin-bottom: 12px; }
-  .tabs {
-    display: flex; gap: 4px; margin-bottom: 16px;
-    background: var(--accent); padding: 4px; border-radius: 10px;
-  }
-  .tabs button {
-    flex: 1; padding: 8px; border: none; background: transparent;
-    color: var(--sub); font-size: .875rem; font-weight: 600;
-    border-radius: 6px; cursor: pointer; transition: all .15s;
-  }
-  .tabs button.active { background: var(--card); color: var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,.1); }
-  .member-row {
-    display: grid; grid-template-columns: 1fr 100px 100px 36px;
-    gap: 8px; margin-bottom: 8px; align-items: center;
-  }
-  .member-row input { padding: 8px 10px; font-size: .9rem; }
-  .btn-remove {
-    background: var(--danger); color: white; border: none;
-    width: 36px; height: 36px; border-radius: 8px; cursor: pointer;
-    font-size: 1.1rem; line-height: 1;
-  }
-  .btn {
-    width: 100%; padding: 14px; font-size: 1rem; font-weight: 700;
-    border: none; border-radius: 10px; cursor: pointer; transition: all .15s;
-  }
-  .btn-primary { background: var(--primary); color: white; }
-  .btn-primary:hover { background: var(--primary-hover); }
-  .btn-secondary { background: var(--accent); color: var(--text); margin-top: 8px; }
-  .btn-add {
-    background: var(--accent); color: var(--primary);
-    padding: 10px; width: 100%; border: 1px dashed var(--primary);
-    border-radius: 8px; cursor: pointer; font-weight: 600; margin-top: 8px;
-  }
-  .result-total {
-    font-size: 2rem; font-weight: 800; color: var(--primary);
-    text-align: center; margin: 8px 0;
-  }
-  .result-total small { font-size: 1rem; color: var(--sub); font-weight: 500; }
-  .result-list { list-style: none; }
-  .result-list li {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 12px 16px; border-radius: 8px; margin-bottom: 6px; background: var(--accent);
-  }
-  .result-list .name { font-weight: 600; }
-  .result-list .amount { font-size: 1.15rem; font-weight: 700; color: var(--primary); }
-  .result-list .amount small { font-size: .75rem; color: var(--sub); font-weight: 400; margin-left: 4px; }
-  .history-item {
-    padding: 12px; border: 1px solid var(--border); border-radius: 8px;
-    margin-bottom: 8px; font-size: .875rem;
-  }
-  .history-item .h-head { display: flex; justify-content: space-between; margin-bottom: 4px; }
-  .history-item .h-total { font-weight: 700; color: var(--primary); }
-  .history-item .h-date { color: var(--sub); font-size: .75rem; }
-  .history-item .h-members { color: var(--sub); font-size: .8rem; }
-  .hint { font-size: .8rem; color: var(--sub); margin-top: 4px; }
-  .hidden { display: none; }
-  .copy-msg { text-align: center; color: var(--success); font-size: .875rem; margin-top: 8px; }
-  .split-info { font-size: .8rem; color: var(--sub); margin-top: 6px; text-align: center; }
-  @media (max-width: 480px) {
-    .row { grid-template-columns: 1fr; }
-    .member-row { grid-template-columns: 1fr 80px 80px 36px; }
-  }
-</style>
+
 <script>
-let members = [];
-let mode = 'equal';
+  // =====================================================
+  //  ここから動き(プログラム)の部分
+  // =====================================================
 
-function init() {
-  const savedTheme = localStorage.getItem('warikan_theme') || 'light';
-  document.documentElement.setAttribute('data-theme', savedTheme);
-  const savedMembers = localStorage.getItem('warikan_members');
-  if (savedMembers) { try { members = JSON.parse(savedMembers); } catch(e) { members = []; } }
-  if (!members.length) {
-    members = [
-      { name: 'Aさん', weight: 1, custom: 0 },
-      { name: 'Bさん', weight: 1, custom: 0 },
-      { name: 'Cさん', weight: 1, custom: 0 }
-    ];
+  // 保存するときの名前
+  const STORAGE_KEY = "warikan-app";
+
+  // ガソリン価格の最初の値(目安)。画面で書きかえると、そちらが使われます
+  const DEFAULT_PRICES = { regular: 160, premium: 171, diesel: 145 };
+
+  // 燃料の日本語の名前
+  const FUEL_NAMES = { regular: "レギュラー", premium: "ハイオク", diesel: "軽油" };
+
+  // 「今回の移動」で覚えておく入力欄の id 一覧
+  const TRIP_FIELDS = [
+    "trip-car", "go-from", "go-to", "go-km", "go-hw", "go-ic-in", "go-ic-out", "go-toll", "go-discount",
+    "back-same", "back-from", "back-to", "back-km", "back-hw", "back-ic-in", "back-ic-out", "back-toll",
+    "back-discount", "other", "people", "rounding", "driver-pays", "back-via-same"
+  ];
+
+  // id から画面の部品を取り出す短い書き方
+  function $(id) { return document.getElementById(id); }
+
+  // ---------- 保存データ ----------
+  // data の中身: { cars: [{name, kmpl, fuel}], prices: {...}, trip: {...} }
+  let data = load();
+  // 前のバージョンで保存したデータには、場所・IC・料金メモがないので用意する
+  data.places = data.places || []; // [{name, address}]
+  data.ics = data.ics || [];       // [{name: "東京IC", lon: 経度, lat: 緯度}]
+  // さらに前のバージョンでは IC を文字だけで保存していたので、形をそろえる
+  data.ics = data.ics.map(function (ic) { return typeof ic === "string" ? { name: ic } : ic; });
+  data.tolls = data.tolls || {};   // { "東京IC→静岡IC": 3790 }
+  data.patterns = data.patterns || []; // [{name, trip, carName, total, per, prices, savedAt}]
+
+  function load() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+      if (saved) return saved;
+    } catch (e) { /* 読めなかったら下の初期データを使う */ }
+    return { cars: [], prices: { ...DEFAULT_PRICES }, trip: {} };
   }
-  renderMembers();
-  renderHistory();
-  updateModeUI();
-  updateSubtotalInfo();
-  document.getElementById('totalAmount').addEventListener('input', updateSubtotalInfo);
-  document.getElementById('taxRate').addEventListener('change', updateSubtotalInfo);
-  document.getElementById('serviceRate').addEventListener('input', updateSubtotalInfo);
-}
 
-function toggleTheme() {
-  const cur = document.documentElement.getAttribute('data-theme');
-  const next = cur === 'dark' ? 'light' : 'dark';
-  document.documentElement.setAttribute('data-theme', next);
-  localStorage.setItem('warikan_theme', next);
-}
+  function save() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch (e) { /* 保存できない環境でも止まらないようにする */ }
+  }
 
-function renderMembers() {
-  const el = document.getElementById('memberList');
-  el.innerHTML = '';
-  members.forEach((m, i) => {
-    const row = document.createElement('div');
-    row.className = 'member-row';
-    row.innerHTML =
-      '<input type="text" value="' + escapeHtml(m.name) + '" placeholder="名前" oninput="updateMember(' + i + ', \'name\', this.value)">' +
-      '<input type="number" value="' + (m.weight || 1) + '" min="0.1" step="0.1" oninput="updateMember(' + i + ', \'weight\', parseFloat(this.value) || 1)" class="weight-input" title="傾斜配分の重み">' +
-      '<input type="number" value="' + (m.custom || 0) + '" min="0" step="1" oninput="updateMember(' + i + ', \'custom\', parseInt(this.value) || 0)" class="custom-input" title="個別金額">' +
-      '<button class="btn-remove" onclick="removeMember(' + i + ')" title="削除">×</button>';
-    el.appendChild(row);
-  });
-  updateModeUI();
-  saveMembers();
-}
+  // 入力欄の数字を取り出す(空や変な文字なら 0 にする)
+  function num(id) {
+    const n = parseFloat($(id).value);
+    return isNaN(n) ? 0 : n;
+  }
 
-function updateMember(i, key, val) { members[i][key] = val; saveMembers(); }
-function addMember() { members.push({ name: 'メンバー' + (members.length + 1), weight: 1, custom: 0 }); renderMembers(); }
-function removeMember(i) {
-  if (members.length <= 1) { alert('メンバーは最低1人必要です'); return; }
-  members.splice(i, 1); renderMembers();
-}
-function saveMembers() { localStorage.setItem('warikan_members', JSON.stringify(members)); }
+  // 数字を「1,234円」のような形にする
+  function yen(n) { return Math.round(n).toLocaleString("ja-JP") + "円"; }
 
-function setMode(m) {
-  mode = m;
-  document.querySelectorAll('.tabs button').forEach(function(b) { b.classList.toggle('active', b.dataset.mode === m); });
-  updateModeUI();
-}
-function updateModeUI() {
-  document.querySelectorAll('.weight-input').forEach(function(el) { el.style.display = mode === 'weight' ? '' : 'none'; });
-  document.querySelectorAll('.custom-input').forEach(function(el) { el.style.display = mode === 'custom' ? '' : 'none'; });
-  document.querySelectorAll('.member-row').forEach(function(row) {
-    row.style.gridTemplateColumns = mode === 'equal' ? '1fr 36px' : '1fr 100px 100px 36px';
-  });
-}
-
-function getBaseAmount() { return parseFloat(document.getElementById('totalAmount').value) || 0; }
-function getFinalTotal() {
-  const base = getBaseAmount();
-  const taxRate = parseFloat(document.getElementById('taxRate').value) || 0;
-  const svcRate = parseFloat(document.getElementById('serviceRate').value) || 0;
-  const svc = base * (svcRate / 100);
-  const subtotal = base + svc;
-  const tax = subtotal * (taxRate / 100);
-  return Math.round(subtotal + tax);
-}
-function updateSubtotalInfo() {
-  const base = getBaseAmount();
-  const final = getFinalTotal();
-  const info = document.getElementById('subtotalInfo');
-  if (!base) { info.textContent = ''; return; }
-  info.textContent = final !== base ? '税・サービス料込合計：¥' + final.toLocaleString() : '合計：¥' + final.toLocaleString();
-}
-
-function calculate() {
-  const total = getFinalTotal();
-  if (total <= 0) { alert('合計金額を入力してください'); return; }
-  if (members.length === 0) { alert('メンバーを追加してください'); return; }
-  let results = [];
-
-  if (mode === 'equal') {
-    const n = members.length;
-    const roundMode = document.getElementById('roundMode').value;
-    let per;
-    if (roundMode === 'roundUp') per = Math.ceil(total / n);
-    else if (roundMode === 'roundDown') per = Math.floor(total / n);
-    else per = Math.round(total / n);
-    const diff = total - per * n;
-    results = members.map(function(m, i) { return { name: m.name, amount: per + (i === n - 1 ? diff : 0) }; });
-  } else if (mode === 'weight') {
-    const totalWeight = members.reduce(function(s, m) { return s + (m.weight || 1); }, 0);
-    let allocated = 0;
-    results = members.map(function(m, i) {
-      let amt;
-      if (i === members.length - 1) amt = total - allocated;
-      else { amt = Math.floor(total * (m.weight || 1) / totalWeight); allocated += amt; }
-      return { name: m.name, amount: amt, weight: m.weight };
+  // =====================================================
+  //  ① 車の登録
+  // =====================================================
+  function renderCars() {
+    // 車の一覧を作り直す
+    const list = $("car-list");
+    list.innerHTML = "";
+    data.cars.forEach(function (car, index) {
+      const li = document.createElement("li");
+      const span = document.createElement("span");
+      span.textContent = car.name + "(燃費 " + car.kmpl + "km/L・" + FUEL_NAMES[car.fuel] + ")";
+      const del = document.createElement("button");
+      del.className = "red";
+      del.textContent = "削除";
+      del.addEventListener("click", function () {
+        data.cars.splice(index, 1); // index番目の車を消す
+        save();
+        renderCars();
+      });
+      li.appendChild(span);
+      li.appendChild(del);
+      list.appendChild(li);
     });
-  } else if (mode === 'custom') {
-    const sum = members.reduce(function(s, m) { return s + (m.custom || 0); }, 0);
-    if (sum !== total) {
-      const ok = confirm('個別金額の合計（¥' + sum.toLocaleString() + '）が合計金額（¥' + total.toLocaleString() + '）と一致しません。\n差額を最後のメンバーで調整しますか？');
-      if (!ok) return;
-      const diff = total - sum;
-      results = members.map(function(m, i) { return { name: m.name, amount: (m.custom || 0) + (i === members.length - 1 ? diff : 0) }; });
-    } else {
-      results = members.map(function(m) { return { name: m.name, amount: m.custom || 0 }; });
+
+    // 「使う車」の選択肢も作り直す
+    const select = $("trip-car");
+    const before = select.value;
+    select.innerHTML = "";
+    if (data.cars.length === 0) {
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = "先に①で車を登録してください";
+      select.appendChild(opt);
+    }
+    data.cars.forEach(function (car, index) {
+      const opt = document.createElement("option");
+      opt.value = index;
+      opt.textContent = car.name;
+      select.appendChild(opt);
+    });
+    // 前に選んでいた車がまだあれば、それを選んだままにする
+    if (before !== "" && data.cars[before]) select.value = before;
+    calc();
+  }
+
+  $("car-add").addEventListener("click", function () {
+    const name = $("car-name").value.trim();
+    const kmpl = num("car-kmpl");
+    if (name === "" || kmpl <= 0) {
+      alert("車の名前と燃費を入れてください");
+      return;
+    }
+    data.cars.push({ name: name, kmpl: kmpl, fuel: $("car-fuel").value });
+    save();
+    $("car-name").value = "";
+    $("car-kmpl").value = "";
+    renderCars();
+    $("trip-car").value = data.cars.length - 1; // 今登録した車を選んでおく
+    saveTrip();
+    calc();
+  });
+
+  // =====================================================
+  //  よく使う場所・ICの登録
+  // =====================================================
+
+  // 一覧(削除ボタン付き)を作る共通の部品
+  function renderRegList(listId, items, textOf) {
+    const list = $(listId);
+    list.innerHTML = "";
+    items.forEach(function (item, index) {
+      const li = document.createElement("li");
+      const span = document.createElement("span");
+      textOf(item, span);
+      const del = document.createElement("button");
+      del.className = "red";
+      del.textContent = "削除";
+      del.addEventListener("click", function () {
+        items.splice(index, 1); // index番目を消す
+        save();
+        renderRegistry();
+      });
+      li.appendChild(span);
+      li.appendChild(del);
+      list.appendChild(li);
+    });
+  }
+
+  // 登録一覧と、③の「登録から選ぶ」プルダウンを作り直す
+  function renderRegistry() {
+    renderRegList("place-list", data.places, function (p, span) {
+      span.textContent = p.name + " ";
+      const small = document.createElement("small");
+      small.textContent = p.address;
+      span.appendChild(small);
+    });
+    renderRegList("ic-list", data.ics, function (ic, span) {
+      span.textContent = ic.name + " ";
+      const small = document.createElement("small");
+      small.textContent = ic.lon !== undefined ? "位置あり" : "位置なし";
+      span.appendChild(small);
+    });
+
+    document.querySelectorAll("select.pick").forEach(fillPick);
+  }
+
+  // 「登録から選ぶ」プルダウン1つの中身を作る
+  function fillPick(sel) {
+    {
+      const isPlace = sel.dataset.kind === "place";
+      // ICは「登録したIC」と「テキストに書いてあるIC」を合わせて、同じ名前は1つにする
+      const items = isPlace ? data.places : icNamesForPick();
+      sel.innerHTML = "";
+      const first = document.createElement("option");
+      first.value = "";
+      first.textContent = items.length === 0
+        ? "(まだ登録がありません)"
+        : (isPlace ? "▼ 登録した場所から選ぶ" : "▼ 登録から選ぶ");
+      sel.appendChild(first);
+      items.forEach(function (item) {
+        const opt = document.createElement("option");
+        // 場所なら住所を、ICならICの名前を入力欄に入れる
+        opt.value = isPlace ? item.address : item;
+        opt.textContent = isPlace ? item.name + "(" + item.address + ")" : item;
+        sel.appendChild(opt);
+      });
     }
   }
-  renderResult(total, results);
-  saveHistory(total, results);
-}
 
-function renderResult(total, results) {
-  document.getElementById('resultCard').classList.remove('hidden');
-  document.getElementById('resultTotal').innerHTML = '¥' + total.toLocaleString() + ' <small>／ ' + members.length + '人</small>';
-  const ul = document.getElementById('resultList');
-  ul.innerHTML = '';
-  results.forEach(function(r) {
-    const li = document.createElement('li');
-    let extra = (r.weight !== undefined && mode === 'weight') ? '<small>重み ' + r.weight + '</small>' : '';
-    li.innerHTML = '<span class="name">' + escapeHtml(r.name) + '</span><span class="amount">¥' + r.amount.toLocaleString() + ' ' + extra + '</span>';
-    ul.appendChild(li);
+  // プルダウンで選んだら、すぐ下の入力欄に入れる
+  document.querySelectorAll("select.pick").forEach(function (sel) {
+    sel.addEventListener("change", function () {
+      if (sel.value === "") return;
+      const target = $(sel.dataset.target);
+      target.value = sel.value;
+      sel.value = ""; // プルダウンは「選ぶ」の表示にもどしておく
+      target.dispatchEvent(new Event("input")); // 入力が変わったことを知らせる
+    });
   });
-  document.getElementById('resultCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
 
-function copyResult() {
-  const total = document.getElementById('resultTotal').textContent.trim();
-  const items = Array.from(document.querySelectorAll('#resultList li')).map(function(li) {
-    return li.querySelector('.name').textContent + ': ' + li.querySelector('.amount').textContent.trim();
+  $("place-add").addEventListener("click", function () {
+    const name = $("place-name").value.trim();
+    const address = $("place-address").value.trim();
+    if (name === "" || address === "") {
+      alert("名前と住所を両方入れてください");
+      return;
+    }
+    data.places.push({ name: name, address: address });
+    save();
+    $("place-name").value = "";
+    $("place-address").value = "";
+    renderRegistry();
   });
-  const text = '【割り勘結果】\n合計: ' + total + '\n\n' + items.join('\n');
-  navigator.clipboard.writeText(text).then(function() {
-    const msg = document.getElementById('copyMsg');
-    msg.classList.remove('hidden');
-    setTimeout(function() { msg.classList.add('hidden'); }, 2000);
-  });
-}
 
-function saveHistory(total, results) {
-  const history = JSON.parse(localStorage.getItem('warikan_history') || '[]');
-  history.unshift({
-    total: total,
-    results: results.map(function(r) { return { name: r.name, amount: r.amount }; }),
-    date: new Date().toLocaleString('ja-JP')
-  });
-  localStorage.setItem('warikan_history', JSON.stringify(history.slice(0, 20)));
-  renderHistory();
-}
-function renderHistory() {
-  const el = document.getElementById('historyList');
-  const history = JSON.parse(localStorage.getItem('warikan_history') || '[]');
-  if (!history.length) { el.innerHTML = '<div class="hint">まだ履歴がありません</div>'; return; }
-  el.innerHTML = history.map(function(h) {
-    return '<div class="history-item"><div class="h-head"><span class="h-total">¥' + h.total.toLocaleString() + '</span><span class="h-date">' + h.date + '</span></div><div class="h-members">' + h.results.map(function(r) { return escapeHtml(r.name) + ': ¥' + r.amount.toLocaleString(); }).join(' ／ ') + '</div></div>';
-  }).join('');
-}
-function clearHistory() {
-  if (!confirm('履歴をすべて削除しますか？')) return;
-  localStorage.removeItem('warikan_history');
-  renderHistory();
-}
+  $("ic-add").addEventListener("click", async function () {
+    const name = $("ic-name").value.trim();
+    const address = $("ic-address").value.trim();
+    const status = $("ic-status");
+    if (name === "") {
+      alert("ICの名前を入れてください");
+      return;
+    }
+    status.className = "status";
+    status.textContent = "ICの場所を探しています…";
 
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, function(c) {
-    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
-  });
-}
+    // ICの位置を探す(住所があれば住所から、なければICの名前から)
+    let point = null;
+    try {
+      point = address ? await addressToPoint(address) : await findIcPoint(name);
+    } catch (e) { point = null; }
 
-init();
+    // 同じ名前がもうあれば上書き、なければ新しく追加
+    let ic = data.ics.find(function (x) { return x.name === name; });
+    if (!ic) {
+      ic = { name: name };
+      data.ics.push(ic);
+    }
+    if (point) {
+      ic.lon = point[0];
+      ic.lat = point[1];
+      status.className = "status ok";
+      status.textContent = name + " を登録しました(位置あり)";
+    } else {
+      status.className = "status ng";
+      status.textContent = name + " を登録しましたが、場所が見つかりませんでした(位置なし)。ICの住所を入れて、もう一度登録してください。";
+    }
+    save();
+    $("ic-name").value = "";
+    $("ic-address").value = "";
+    renderRegistry();
+  });
+
+  // ---------- 高速料金を「乗るIC→降りるIC」ごとに覚える ----------
+  function tollKey(prefix) {
+    const a = $(prefix + "-ic-in").value.trim();
+    const b = $(prefix + "-ic-out").value.trim();
+    return (a && b) ? a + "→" + b : "";
+  }
+  ["go", "back"].forEach(function (prefix) {
+    // 料金を入れたら覚える
+    $(prefix + "-toll").addEventListener("input", function () {
+      const key = tollKey(prefix);
+      const toll = num(prefix + "-toll");
+      if (key && toll > 0) {
+        data.tolls[key] = toll;
+        save();
+      }
+    });
+    // ICが変わったら料金を入れる(テキストに書いてあればそれを、なければ前に入れた料金を)
+    ["-ic-in", "-ic-out"].forEach(function (part) {
+      $(prefix + part).addEventListener("input", function () {
+        const ft = fileToll(prefix);
+        const key = tollKey(prefix);
+        if (ft) {
+          $(prefix + "-toll").value = ft.normal;
+          onTripChange();
+        } else if (key && data.tolls[key]) {
+          $(prefix + "-toll").value = data.tolls[key];
+          onTripChange();
+        }
+      });
+    });
+  });
+
+  // =====================================================
+  //  テキストファイル(text/gas.txt)から値段を読み込む
+  // =====================================================
+  // fileData の中身:
+  //   prices: { regular: 165, ... }
+  //   tolls:  { "玉島IC→庄原IC": { normal: 2060, discount: 1440 }, ... }
+  //   ics:    ["玉島IC", "庄原IC", ...]
+  let fileData = { prices: {}, tolls: {}, ics: [] };
+
+  // ICの名前を比べやすくする(空白を取る)
+  function icKey(a, b) { return a.replace(/\s/g, "") + "→" + b.replace(/\s/g, ""); }
+
+  // テキストの中身を読み取る
+  // ・「レギュラー 165」のような行 → ガソリンの値段
+  // ・「玉島IC 庄原IC 2060 3割引1440」のような行 → 高速代(通常と割引あり)
+  // ・それ以外の行(「ガソリン」「高速代」などの見出し)は読みとばす
+  function parseGasText(text) {
+    const result = { prices: {}, tolls: {}, ics: [] };
+    const fuelWords = { "レギュラー": "regular", "ハイオク": "premium", "軽油": "diesel" };
+    text.split(/\r?\n/).forEach(function (raw) {
+      // 全角の数字を半角に、「,」と「円」は消しておく
+      const line = raw
+        .replace(/[０-９]/g, function (c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); })
+        .replace(/[,，円]/g, "")
+        .trim();
+      if (line === "") return;
+
+      // ガソリンの行
+      for (const word in fuelWords) {
+        if (line.indexOf(word) === 0) {
+          const m = line.slice(word.length).match(/\d+(\.\d+)?/);
+          if (m) result.prices[fuelWords[word]] = parseFloat(m[0]);
+          return;
+        }
+      }
+
+      // 高速代の行:最初の2つが IC の名前、そのあとが料金
+      const parts = line.split(/\s+/); // \s には全角スペースもふくまれる
+      if (parts.length < 3 || /^\d/.test(parts[0]) || /^\d/.test(parts[1])) return;
+      const rest = parts.slice(2).join(" ");
+      const disc = rest.match(/割引\D*?(\d+)/);                       // 「3割引1440」の 1440
+      const normal = rest.replace(/\d*割引\D*?\d+/, "").match(/\d+/); // 残りの最初の数字が通常料金
+      if (!normal) return;
+      result.tolls[icKey(parts[0], parts[1])] = {
+        normal: parseInt(normal[0], 10),
+        discount: disc ? parseInt(disc[1], 10) : null
+      };
+      [parts[0], parts[1]].forEach(function (n) {
+        if (result.ics.indexOf(n) === -1) result.ics.push(n);
+      });
+    });
+    return result;
+  }
+
+  // 今選んでいるICの区間が、テキストに書いてあればその料金を返す(逆向きでもOK)
+  function fileToll(prefix) {
+    const a = $(prefix + "-ic-in").value.trim();
+    const b = $(prefix + "-ic-out").value.trim();
+    if (!a || !b) return null;
+    return fileData.tolls[icKey(a, b)] || fileData.tolls[icKey(b, a)] || null;
+  }
+
+  // プルダウン用のICの名前(登録したIC+テキストのIC)
+  function icNamesForPick() {
+    const names = data.ics.map(function (ic) { return ic.name; });
+    fileData.ics.forEach(function (n) { if (names.indexOf(n) === -1) names.push(n); });
+    return names;
+  }
+
+  // 料金欄の下に「テキストの料金」を表示する
+  function updateFileHints() {
+    ["go", "back"].forEach(function (prefix) {
+      const box = $(prefix + "-file-toll");
+      const ft = fileToll(prefix);
+      const wantFile = $(prefix + "-discount").value === "file";
+      if (ft) {
+        box.textContent = "テキストの料金:通常 " + yen(ft.normal) +
+          (ft.discount !== null ? " / 割引あり " + yen(ft.discount) : "(割引ありの料金は書いてありません)");
+      } else if (wantFile) {
+        box.textContent = "この区間はテキストに書いてないので、割引なしで計算しています。";
+      } else {
+        box.textContent = "";
+      }
+    });
+  }
+
+  // ページを開いたときにテキストを読み込む
+  async function loadGasFile() {
+    const status = $("file-status");
+    try {
+      // cache: "no-store" で、いつも最新のファイルを取りに行く
+      const res = await fetch("../text/gas.txt", { cache: "no-store" });
+      if (!res.ok) throw new Error("not found");
+      fileData = parseGasText(await res.text());
+    } catch (e) {
+      // ダウンロードしたファイルで開いたときなどは読めないので、手入力のまま使う
+      status.textContent = "";
+      return;
+    }
+    // ガソリンの値段を入れる(書いてない燃料は、前の値のまま)
+    const names = [];
+    ["regular", "premium", "diesel"].forEach(function (fuel) {
+      if (fileData.prices[fuel] !== undefined) {
+        data.prices[fuel] = fileData.prices[fuel];
+        $("price-" + fuel).value = fileData.prices[fuel];
+        names.push(FUEL_NAMES[fuel] + " " + fileData.prices[fuel] + "円");
+      }
+    });
+    save();
+    const tollCount = Object.keys(fileData.tolls).length;
+    status.className = "status ok";
+    status.textContent = "テキストから読み込みました:" +
+      (names.length ? names.join("・") : "ガソリン代なし") + "/高速代 " + tollCount + "区間";
+    renderRegistry();
+    updateFileHints();
+    calc();
+  }
+
+  // =====================================================
+  //  経由地(乗せる人の家など)
+  // =====================================================
+  // 行き・帰りそれぞれの経由地の住所を、順番どおりに入れておく
+  let vias = { go: [], back: [] };
+
+  // 経由地の入力欄を作り直す
+  function renderVias(prefix) {
+    const box = $(prefix + "-via-list");
+    box.innerHTML = "";
+    vias[prefix].forEach(function (address, index) {
+      const item = document.createElement("div");
+      item.className = "via-item";
+
+      // 見出し「経由地1」と削除ボタン
+      const head = document.createElement("div");
+      head.className = "via-head";
+      const title = document.createElement("span");
+      title.textContent = "経由地" + (index + 1);
+      const del = document.createElement("button");
+      del.type = "button";
+      del.className = "red";
+      del.textContent = "削除";
+      del.addEventListener("click", function () {
+        vias[prefix].splice(index, 1); // index番目の経由地を消す
+        renderVias(prefix);
+        onTripChange();
+      });
+      head.appendChild(title);
+      head.appendChild(del);
+
+      // 登録した場所から選ぶプルダウン
+      const pick = document.createElement("select");
+      pick.className = "pick";
+      pick.dataset.kind = "place";
+      pick.setAttribute("aria-label", "登録した場所から選ぶ");
+      fillPick(pick);
+
+      // 住所の入力欄
+      const input = document.createElement("input");
+      input.type = "text";
+      input.placeholder = "例:乗せる人の家の住所";
+      input.value = address;
+      input.setAttribute("aria-label", "経由地" + (index + 1) + "の住所");
+      input.addEventListener("input", function () {
+        vias[prefix][index] = input.value;
+        onTripChange();
+      });
+      pick.addEventListener("change", function () {
+        if (pick.value === "") return;
+        input.value = pick.value;
+        pick.value = "";
+        input.dispatchEvent(new Event("input"));
+      });
+
+      item.appendChild(head);
+      item.appendChild(pick);
+      item.appendChild(input);
+      box.appendChild(item);
+    });
+  }
+
+  ["go", "back"].forEach(function (prefix) {
+    $(prefix + "-via-add").addEventListener("click", function () {
+      vias[prefix].push(""); // 空の経由地を1つ足す
+      renderVias(prefix);
+      onTripChange();
+      // 足した欄にすぐ入力できるようにする
+      const inputs = $(prefix + "-via-list").querySelectorAll("input");
+      inputs[inputs.length - 1].focus();
+    });
+  });
+
+  // 計算に使う経由地の一覧(空の欄はのぞく)
+  // 帰りで「行きの経由地に寄る」にチェックがあれば、行きの経由地を逆の順番で使う
+  function viaList(prefix) {
+    let list = vias[prefix];
+    if (prefix === "back" && $("back-via-same").checked) list = vias.go.slice().reverse();
+    return list.map(function (x) { return x.trim(); }).filter(function (x) { return x !== ""; });
+  }
+
+  // =====================================================
+  //  ② ガソリンの値段
+  // =====================================================
+  ["regular", "premium", "diesel"].forEach(function (fuel) {
+    const input = $("price-" + fuel);
+    input.value = data.prices[fuel];
+    input.addEventListener("input", function () {
+      data.prices[fuel] = num("price-" + fuel);
+      save();
+      calc();
+    });
+  });
+
+  // =====================================================
+  //  ③ 距離を自動で調べる
+  // =====================================================
+
+  // 住所 → 緯度・経度(国土地理院の無料サービスを使う)
+  async function addressToPoint(address) {
+    const url = "https://msearch.gsi.go.jp/address-search/AddressSearch?q=" + encodeURIComponent(address);
+    const res = await fetch(url);
+    const list = await res.json();
+    if (!list || list.length === 0) {
+      throw new Error("「" + address + "」の場所が見つかりませんでした");
+    }
+    return list[0].geometry.coordinates; // [経度, 緯度] の順で入っている
+  }
+
+  // ICの名前から位置を探す(OpenStreetMapの無料の検索サービスを使う)
+  // 見つかった場所が「IC(インターチェンジ)」のときだけ使う。違う場所をまちがって使わないため
+  async function findIcPoint(name) {
+    const base = name.replace(/(IC|ＩＣ|インターチェンジ|インター)$/, "").trim();
+    const words = [name, base + "IC", base + "インターチェンジ", base];
+    for (const q of words) {
+      const url = "https://nominatim.openstreetmap.org/search?format=json&countrycodes=jp&limit=10&q=" + encodeURIComponent(q);
+      const res = await fetch(url);
+      const list = await res.json();
+      const hit = list.find(function (r) { return r.type === "motorway_junction"; });
+      if (hit) return [parseFloat(hit.lon), parseFloat(hit.lat)];
+    }
+    return null;
+  }
+
+  // 登録したICの位置を取り出す(登録がない・位置なしなら null)
+  function icPoint(name) {
+    const ic = data.ics.find(function (x) { return x.name === name; });
+    return ic && ic.lon !== undefined ? [ic.lon, ic.lat] : null;
+  }
+
+  // 出発・到着の住所を取り出す
+  // 帰りで「行きの到着地から出発地へ戻る」にチェックがあれば、行きの住所を逆にして使う
+  function legAddresses(prefix) {
+    if (prefix === "back" && $("back-same").checked) {
+      return { from: $("go-to").value.trim(), to: $("go-from").value.trim() };
+    }
+    return { from: $(prefix + "-from").value.trim(), to: $(prefix + "-to").value.trim() };
+  }
+
+  // いくつかの地点を順番に通る、車の道のりの距離(km)を調べる(OSRMという無料サービスを使う)
+  // points は [[経度, 緯度], [経度, 緯度], ...] の形
+  async function roadDistanceKm(points) {
+    const url = "https://router.project-osrm.org/route/v1/driving/" +
+      points.map(function (p) { return p[0] + "," + p[1]; }).join(";") + "?overview=false";
+    const res = await fetch(url);
+    const json = await res.json();
+    if (json.code !== "Ok" || !json.routes || json.routes.length === 0) {
+      throw new Error("道順が見つかりませんでした");
+    }
+    return json.routes[0].distance / 1000; // メートル → キロメートル
+  }
+
+  // 「距離を自動で調べる」ボタンの動き(行き・帰りで共通)
+  // 行き:出発 → 経由地 → 乗るIC → 降りるIC → 到着
+  // 帰り:出発 → 乗るIC → 降りるIC → 経由地 → 到着  の順に通る道のりで計算する
+  async function searchDistance(prefix) {
+    const addr = legAddresses(prefix);
+    const status = $(prefix + "-status");
+    if (addr.from === "" || addr.to === "") {
+      status.className = "status ng";
+      status.textContent = "出発と到着の住所を両方入れてください";
+      return;
+    }
+    status.className = "status";
+    status.textContent = "調べています…";
+    try {
+      const via = [];     // 通ったIC
+      const missing = []; // 位置がわからなかったIC
+
+      // 経由地の住所を緯度・経度に変える
+      const viaNames = viaList(prefix);
+      const viaPoints = [];
+      for (const v of viaNames) viaPoints.push(await addressToPoint(v));
+
+      // ICの位置を集める
+      const icPoints = [];
+      if ($(prefix + "-hw").checked) {
+        [prefix + "-ic-in", prefix + "-ic-out"].forEach(function (id) {
+          const name = $(id).value.trim();
+          if (name === "") return;
+          const p = icPoint(name);
+          if (p) { icPoints.push(p); via.push(name); } else { missing.push(name); }
+        });
+      }
+
+      // 通る順番に並べる(行きは経由地が先、帰りはICが先)
+      const middle = prefix === "go" ? viaPoints.concat(icPoints) : icPoints.concat(viaPoints);
+      const points = [await addressToPoint(addr.from)].concat(middle, [await addressToPoint(addr.to)]);
+
+      const km = await roadDistanceKm(points);
+      $(prefix + "-km").value = km.toFixed(1); // 小数第1位まで
+      let msg = "約 " + km.toFixed(1) + " km でした";
+      const passed = [];
+      if (viaNames.length > 0) passed.push("経由地" + viaNames.length + "か所");
+      if (via.length > 0) passed.push(via.join("・"));
+      if (passed.length > 0) msg += "(" + passed.join("と") + " を通る道のり)";
+      msg += "。目安です。";
+      if (missing.length > 0) {
+        msg += " ※" + missing.join("・") + " は位置がわからないので、通らずに計算しました。登録欄でICの住所を入れて登録し直すと、通るようになります。";
+      }
+      status.className = missing.length > 0 ? "status ng" : "status ok";
+      status.textContent = msg;
+      saveTrip();
+      calc();
+    } catch (e) {
+      status.className = "status ng";
+      status.textContent = "自動で調べられませんでした。下のGoogleマップのリンクで調べて、距離を手で入れてください。";
+    }
+  }
+  $("go-search").addEventListener("click", function () { searchDistance("go"); });
+  $("back-search").addEventListener("click", function () { searchDistance("back"); });
+
+  // Googleマップのリンクを、入力された住所とICに合わせて作る(ICは経由地にする)
+  function updateMapLinks() {
+    ["go", "back"].forEach(function (prefix) {
+      const addr = legAddresses(prefix);
+      let url = "https://www.google.com/maps/dir/?api=1&travelmode=driving" +
+        "&origin=" + encodeURIComponent(addr.from) + "&destination=" + encodeURIComponent(addr.to);
+      let ics = [];
+      if ($(prefix + "-hw").checked) {
+        ics = [$(prefix + "-ic-in").value.trim(), $(prefix + "-ic-out").value.trim()]
+          .filter(function (x) { return x !== ""; });
+      }
+      // 経由地とICを、通る順番に並べる
+      const stops = prefix === "go" ? viaList("go").concat(ics) : ics.concat(viaList("back"));
+      if (stops.length > 0) url += "&waypoints=" + encodeURIComponent(stops.join("|"));
+      $(prefix + "-map").href = url;
+    });
+  }
+
+  // =====================================================
+  //  表示・非表示の切りかえ
+  // =====================================================
+  function updateVisibility() {
+    $("go-hw-area").style.display = $("go-hw").checked ? "block" : "none";
+    $("back-hw-area").style.display = $("back-hw").checked ? "block" : "none";
+    $("back-address-area").style.display = $("back-same").checked ? "none" : "block";
+    $("back-via-area").style.display = $("back-via-same").checked ? "none" : "block";
+  }
+
+  // =====================================================
+  //  ④ 計算
+  // =====================================================
+  // 高速料金を計算する(割引をかける)
+  function tollOf(prefix) {
+    if (!$(prefix + "-hw").checked) return 0; // 高速を使わないなら 0円
+    const toll = num(prefix + "-toll");
+    const choice = $(prefix + "-discount").value;
+    if (choice === "file") {
+      // テキストの「割引あり」の料金を使う(書いてなければ割引なし)
+      const ft = fileToll(prefix);
+      return ft && ft.discount !== null ? ft.discount : toll;
+    }
+    const discount = parseFloat(choice); // 0 か 0.3
+    return Math.round(toll * (1 - discount));
+  }
+
+  let lastResultText = ""; // コピー用の文章
+  let lastTotal = 0;       // 今の合計金額
+  let lastPer = 0;         // 今の1人あたり
+
+  function calc() {
+    const car = data.cars[$("trip-car").value];
+
+    // 距離:帰りの距離が空なら、行きと同じ距離として計算する
+    const goKm = num("go-km");
+    const backKmEmpty = $("back-km").value.trim() === "";
+    const backKm = backKmEmpty ? goKm : num("back-km");
+    const totalKm = goKm + backKm;
+
+    // ガソリン代 = 距離 ÷ 燃費 × 1Lの値段
+    let liters = 0;
+    let fuelCost = 0;
+    if (car) {
+      liters = totalKm / car.kmpl;
+      fuelCost = liters * (data.prices[car.fuel] || 0);
+    }
+
+    const goToll = tollOf("go");
+    const backToll = tollOf("back");
+    const other = num("other");
+    const total = Math.round(fuelCost) + goToll + backToll + other;
+
+    // 何人で割るか(運転手が払わないなら1人へらす)
+    const people = Math.max(1, Math.floor(num("people")));
+    const driverPays = $("driver-pays").checked;
+    const payers = driverPays ? people : people - 1;
+
+    // 1人分を計算して、端数を切り上げる
+    const unit = parseInt($("rounding").value, 10);
+    let per = 0;
+    if (payers > 0) per = Math.ceil(total / payers / unit) * unit;
+    lastTotal = total;
+    lastPer = per;
+
+    // ---- 表を作る ----
+    const rows = [
+      ["使う車", car ? car.name + "(" + FUEL_NAMES[car.fuel] + ")" : "未選択"],
+      ["行きの距離", goKm.toFixed(1) + " km"],
+      ["帰りの距離" + (backKmEmpty ? "(行きと同じ)" : ""), backKm.toFixed(1) + " km"],
+      ["走る距離(合計)", totalKm.toFixed(1) + " km"],
+      ["使うガソリン", liters.toFixed(1) + " L"],
+      ["ガソリン代", yen(fuelCost)],
+      ["高速代(行き)", yen(goToll)],
+      ["高速代(帰り)", yen(backToll)],
+      ["駐車場代など", yen(other)],
+      ["合計", yen(total)]
+    ];
+    const body = $("result-body");
+    body.innerHTML = "";
+    rows.forEach(function (r, i) {
+      const tr = document.createElement("tr");
+      if (i === rows.length - 1) tr.className = "total";
+      const td1 = document.createElement("td");
+      td1.textContent = r[0];
+      const td2 = document.createElement("td");
+      td2.textContent = r[1];
+      tr.appendChild(td1);
+      tr.appendChild(td2);
+      body.appendChild(tr);
+    });
+
+    // ---- 1人あたり ----
+    let note = "";
+    if (!car) {
+      note = "①で車を登録して、③で選んでください";
+    } else if (payers <= 0) {
+      note = "払う人がいません。人数をふやしてください";
+    } else {
+      const collected = per * payers;
+      note = payers + "人で割りました" + (driverPays ? "" : "(運転手はのぞく)");
+      if (collected > total) note += "。切り上げで " + yen(collected - total) + " 多く集まります";
+    }
+    $("per-label").textContent = driverPays ? "1人あたり" : "1人あたり(運転手以外)";
+    $("per-person").textContent = payers > 0 ? yen(per) : "-";
+    $("per-note").textContent = note;
+
+    // ---- コピー用の文章 ----
+    const lines = ["【交通費わりかん】"];
+    if ($("go-from").value && $("go-to").value) {
+      lines.push("行き:" + $("go-from").value + " → " + $("go-to").value);
+    }
+    if (viaList("go").length > 0) lines.push("経由(行き):" + viaList("go").join(" → "));
+    if (viaList("back").length > 0) lines.push("経由(帰り):" + viaList("back").join(" → "));
+    if ($("go-hw").checked) lines.push("高速(行き):" + $("go-ic-in").value + " → " + $("go-ic-out").value + " " + yen(goToll));
+    if ($("back-hw").checked) lines.push("高速(帰り):" + $("back-ic-in").value + " → " + $("back-ic-out").value + " " + yen(backToll));
+    lines.push("距離:" + totalKm.toFixed(1) + "km / ガソリン代:" + yen(fuelCost));
+    if (other > 0) lines.push("駐車場など:" + yen(other));
+    lines.push("合計:" + yen(total));
+    lines.push((driverPays ? "1人あたり:" : "1人あたり(運転手以外):") + yen(per) + "(" + payers + "人)");
+    lastResultText = lines.join("\n");
+
+    // パターンを呼び出しているときは、保存したときとの差を出す
+    showCompare();
+  }
+
+  // =====================================================
+  //  今回の移動の入力を覚えておく
+  // =====================================================
+  function saveTrip() {
+    TRIP_FIELDS.forEach(function (id) {
+      const el = $(id);
+      data.trip[id] = el.type === "checkbox" ? el.checked : el.value;
+    });
+    data.trip["go-via"] = vias.go.slice();
+    data.trip["back-via"] = vias.back.slice();
+    save();
+  }
+
+  function restoreTrip() {
+    TRIP_FIELDS.forEach(function (id) {
+      if (!(id in data.trip)) return;
+      const el = $(id);
+      if (el.type === "checkbox") el.checked = data.trip[id];
+      else el.value = data.trip[id];
+    });
+    // 経由地(前のバージョンのデータにはないので、なければ空にする)
+    vias = {
+      go: (data.trip["go-via"] || []).slice(),
+      back: (data.trip["back-via"] || []).slice()
+    };
+    renderVias("go");
+    renderVias("back");
+  }
+
+  // 入力が変わるたびに:保存 → 表示切りかえ → 計算
+  TRIP_FIELDS.forEach(function (id) {
+    $(id).addEventListener("input", onTripChange);
+    $(id).addEventListener("change", onTripChange);
+  });
+  function onTripChange() {
+    saveTrip();
+    updateVisibility();
+    updateMapLinks();
+    updateFileHints();
+    calc();
+  }
+
+  // =====================================================
+  //  結果のコピーとリセット
+  // =====================================================
+  $("copy").addEventListener("click", function () {
+    const status = $("copy-status");
+    navigator.clipboard.writeText(lastResultText).then(function () {
+      status.className = "status ok";
+      status.textContent = "コピーしました。LINEなどに貼り付けられます。";
+    }, function () {
+      status.className = "status ng";
+      status.textContent = "コピーできませんでした";
+    });
+  });
+
+  // =====================================================
+  //  パターンの保存・呼び出し
+  // =====================================================
+  let loadedPattern = null; // 今呼び出しているパターン(比べるために使う)
+
+  // 呼び出し用のプルダウンを作り直す
+  function renderPatterns() {
+    const sel = $("pattern-select");
+    sel.innerHTML = "";
+    const first = document.createElement("option");
+    first.value = "";
+    first.textContent = data.patterns.length === 0 ? "(まだ保存したパターンがありません)" : "▼ パターンを選ぶ";
+    sel.appendChild(first);
+    data.patterns.forEach(function (pt, index) {
+      const opt = document.createElement("option");
+      opt.value = index;
+      opt.textContent = pt.name;
+      sel.appendChild(opt);
+    });
+    if (loadedPattern) {
+      const i = data.patterns.indexOf(loadedPattern);
+      if (i !== -1) sel.value = i;
+    }
+  }
+
+  // 保存したときと今の金額を比べて表示する
+  function showCompare() {
+    const box = $("pattern-compare");
+    box.innerHTML = "";
+    if (!loadedPattern) return;
+    const pt = loadedPattern;
+
+    // 差を「+171円」「-50円」「変わらず」の形にする部品
+    function diffSpan(now, before) {
+      const span = document.createElement("span");
+      const d = Math.round(now - before);
+      if (d > 0) { span.className = "up"; span.textContent = "(+" + yen(d) + ")"; }
+      else if (d < 0) { span.className = "down"; span.textContent = "(-" + yen(-d) + ")"; }
+      else { span.textContent = "(変わらず)"; }
+      return span;
+    }
+    function line(label, before, now) {
+      const div = document.createElement("div");
+      div.textContent = label + ":保存したとき " + yen(before) + " → 今 " + yen(now) + " ";
+      div.appendChild(diffSpan(now, before));
+      box.appendChild(div);
+    }
+    const head = document.createElement("div");
+    head.textContent = "「" + pt.name + "」(" + pt.savedAt + " に保存)";
+    box.appendChild(head);
+    line("合計", pt.total, lastTotal);
+    line("1人あたり", pt.per, lastPer);
+  }
+
+  // 保存
+  $("pattern-save").addEventListener("click", function () {
+    const name = $("pattern-name").value.trim();
+    const status = $("pattern-status");
+    if (name === "") {
+      status.className = "status ng";
+      status.textContent = "パターンの名前を入れてください";
+      return;
+    }
+    saveTrip();
+    const car = data.cars[$("trip-car").value];
+    const now = new Date();
+    const pattern = {
+      name: name,
+      trip: JSON.parse(JSON.stringify(data.trip)), // 今の入力をまるごとコピー
+      carName: car ? car.name : "",                // 車は名前でも覚えておく(車を消して番号がずれても大丈夫なように)
+      total: lastTotal,
+      per: lastPer,
+      savedAt: now.getFullYear() + "/" + (now.getMonth() + 1) + "/" + now.getDate()
+    };
+    const index = data.patterns.findIndex(function (x) { return x.name === name; });
+    if (index !== -1) {
+      if (!confirm("「" + name + "」はもうあります。上書きしますか?")) return;
+      data.patterns[index] = pattern;
+    } else {
+      data.patterns.push(pattern);
+    }
+    save();
+    loadedPattern = pattern;
+    renderPatterns();
+    showCompare();
+    status.className = "status ok";
+    status.textContent = "「" + name + "」を保存しました";
+  });
+
+  // 呼び出し
+  $("pattern-select").addEventListener("change", function () {
+    const pt = data.patterns[$("pattern-select").value];
+    if (!pt) return;
+    data.trip = JSON.parse(JSON.stringify(pt.trip));
+    restoreTrip();
+    // 車は名前で探して選び直す
+    const carIndex = data.cars.findIndex(function (c) { return c.name === pt.carName; });
+    if (carIndex !== -1) $("trip-car").value = carIndex;
+    ["go-status", "back-status", "copy-status", "pattern-status"].forEach(function (id) { $(id).textContent = ""; });
+    $("pattern-name").value = pt.name; // そのまま上書き保存しやすいように
+    loadedPattern = pt;
+    onTripChange();
+  });
+
+  // 削除
+  $("pattern-delete").addEventListener("click", function () {
+    const index = $("pattern-select").value;
+    const pt = data.patterns[index];
+    if (!pt) {
+      alert("削除したいパターンを、先にプルダウンで選んでください");
+      return;
+    }
+    if (!confirm("「" + pt.name + "」を削除しますか?")) return;
+    data.patterns.splice(index, 1);
+    if (loadedPattern === pt) loadedPattern = null;
+    save();
+    renderPatterns();
+    showCompare();
+  });
+
+  $("reset").addEventListener("click", function () {
+    if (!confirm("今回の移動の入力を空にしますか?(車とガソリンの値段は残ります)")) return;
+    const keepCar = $("trip-car").value;
+    data.trip = {};
+    TRIP_FIELDS.forEach(function (id) {
+      const el = $(id);
+      if (el.type === "checkbox") el.checked = (id === "back-same" || id === "driver-pays" || id === "back-via-same");
+      else if (el.tagName === "SELECT") el.selectedIndex = 0;
+      else el.value = "";
+    });
+    $("trip-car").value = keepCar;
+    $("people").value = 2;
+    $("rounding").value = "100";
+    ["go-status", "back-status", "copy-status", "pattern-status"].forEach(function (id) { $(id).textContent = ""; });
+    $("pattern-name").value = "";
+    vias = { go: [], back: [] };
+    renderVias("go");
+    renderVias("back");
+    loadedPattern = null;
+    renderPatterns();
+    onTripChange();
+  });
+
+  // =====================================================
+  //  ページを開いたときに最初にやること
+  // =====================================================
+  renderCars();
+  renderRegistry();
+  renderPatterns();
+  restoreTrip();
+  updateVisibility();
+  updateMapLinks();
+  calc();
+  loadGasFile(); // テキストの値段を読み込む(読めたら計算し直す)
 </script>
 </body>
 </html>
