@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <!-- スマホの画面幅に合わせる設定 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>釣り魚の料理メモ</title>
+
+  <style>
+    /* ===== 見た目(デザイン)の設定 ===== */
+    body {
+      margin: 0;
+      padding: 16px;
+      background-color: #eef3f6;   /* うすい水色がかった灰色 */
+      font-family: sans-serif;
+      font-size: 17px;
+      color: #1f2a33;
+    }
+    .container {
+      max-width: 640px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    h1 { font-size: 26px; text-align: center; margin: 8px 0 0; }
+    h2 { font-size: 20px; margin: 0 0 12px; }
+    h3 { font-size: 17px; margin: 18px 0 6px; color: #0f6b7a; }
+
+    /* 白いカード */
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    /* 入力欄(指で押しやすい高さ) */
+    input[type="text"], input[type="number"], input[type="date"], input[type="search"], select, textarea {
+      width: 100%;
+      box-sizing: border-box;
+      min-height: 48px;
+      font-size: 17px;
+      font-family: inherit;
+      padding: 8px 12px;
+      border: 2px solid #c8d3da;
+      border-radius: 8px;
+      background: #fff;
+      color: inherit;
+    }
+    textarea { min-height: 96px; line-height: 1.6; }
+    label { display: block; margin: 12px 0 4px; font-weight: bold; font-size: 15px; }
+
+    /* 2つ・3つの入力欄を横に並べる(狭いときは折り返す) */
+    .row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .row > div { flex: 1 1 120px; min-width: 0; }
+
+    .check { display: flex; align-items: center; gap: 10px; font-weight: bold; margin: 12px 0; min-height: 44px; }
+    .check input { width: 26px; height: 26px; margin: 0; }
+
+    /* ボタン */
+    button {
+      min-height: 48px;
+      font-size: 17px;
+      padding: 0 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      color: #fff;
+      background: #0f7d8c;   /* 海の色 */
+    }
+    button.wide { width: 100%; }
+    button.red { background: #e5484d; }
+    button.gray { background: #6b7280; }
+    button.outline { background: #fff; color: #0f7d8c; border: 2px solid #0f7d8c; }
+    .buttons { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+    .buttons button { flex: 1 1 120px; }
+
+    .hint { font-size: 14px; color: #5f6b75; margin: 6px 0 0; line-height: 1.6; }
+    .status { font-size: 15px; margin-top: 8px; min-height: 1em; }
+    .status.ok { color: #1a7f37; }
+    .status.ng { color: #c62828; }
+
+    /* 表示しない部品 */
+    [hidden] { display: none !important; }
+
+    /* ===== 一覧 ===== */
+    .filters { display: flex; flex-direction: column; gap: 10px; }
+    .count { font-size: 14px; color: #5f6b75; }
+    #memo-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+    .memo {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      background: #fff;
+      border-radius: 12px;
+      padding: 10px;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+      cursor: pointer;
+      text-align: left;
+      color: inherit;
+      width: 100%;
+      min-height: 88px;
+      font-size: 16px;
+    }
+    .memo img, .memo .noimg {
+      width: 72px;
+      height: 72px;
+      border-radius: 8px;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+    .memo .noimg {
+      background: #d9eef1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      color: #0f6b7a;
+    }
+    .memo .info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .memo .dish { font-weight: bold; font-size: 17px; word-break: break-all; }
+    .memo .meta { font-size: 13px; color: #5f6b75; }
+    .fish-tag {
+      display: inline-block;
+      background: #d9eef1;
+      color: #0f6b7a;
+      border-radius: 99px;
+      padding: 0 10px;
+      font-size: 13px;
+      font-weight: bold;
+      align-self: flex-start;
+    }
+    .stars { color: #e6a700; letter-spacing: 1px; }
+    .empty { text-align: center; color: #5f6b75; padding: 24px 0; }
+
+    /* ===== 星の評価ボタン ===== */
+    .star-input { display: flex; gap: 4px; }
+    .star-input button {
+      background: #fff;
+      color: #c8d3da;
+      border: 2px solid #c8d3da;
+      font-size: 24px;
+      padding: 0;
+      width: 48px;
+    }
+    .star-input button.on { color: #e6a700; border-color: #e6a700; }
+
+    /* ===== 写真 ===== */
+    .photos { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    .photo { position: relative; width: 96px; height: 96px; }
+    .photo img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; }
+    .photo button {
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      min-height: 32px;
+      width: 32px;
+      padding: 0;
+      border-radius: 50%;
+      font-size: 16px;
+      background: #e5484d;
+    }
+
+    /* ===== くわしく見る画面 ===== */
+    .detail-photos { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+    .detail-photos img { width: 100%; border-radius: 10px; }
+    .detail dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; font-size: 16px; }
+    .detail dt { color: #5f6b75; }
+    .detail dd { margin: 0; word-break: break-all; }
+    .detail .text { white-space: pre-wrap; word-break: break-all; line-height: 1.7; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>釣り魚の料理メモ</h1>
+
+  <!-- ==================== 一覧の画面 ==================== -->
+  <div id="view-list">
+    <div class="card filters">
+      <button class="wide" id="new-button">＋ 新しいメモを書く</button>
+      <div class="row">
+        <div>
+          <label for="filter-fish">魚の種類</label>
+          <select id="filter-fish"></select>
+        </div>
+        <div>
+          <label for="filter-text">言葉でさがす</label>
+          <input type="search" id="filter-text" placeholder="例:煮付け">
+        </div>
+      </div>
+      <div class="count" id="count"></div>
+    </div>
+
+    <ul id="memo-list" style="margin-top:16px"></ul>
+
+    <!-- バックアップ -->
+    <div class="card" style="margin-top:16px">
+      <h2>バックアップ</h2>
+      <p class="hint" style="margin-top:0">
+        メモはこのスマホのブラウザの中に保存されています。スマホを買いかえるときなどは、
+        「書き出す」でファイルにして、新しいスマホで「読み込む」と移せます。
+      </p>
+      <div class="buttons">
+        <button class="outline" id="export-button">書き出す</button>
+        <button class="outline" id="import-button">読み込む</button>
+      </div>
+      <input type="file" id="import-file" accept=".json,application/json" hidden>
+      <div class="status" id="backup-status"></div>
+    </div>
+  </div>
+
+  <!-- ==================== くわしく見る画面 ==================== -->
+  <div id="view-detail" class="card detail" hidden>
+    <div id="detail-body"></div>
+    <div class="buttons">
+      <button class="gray" id="detail-back">一覧にもどる</button>
+      <button id="detail-edit">書きかえる</button>
+    </div>
+  </div>
+
+  <!-- ==================== 書く画面 ==================== -->
+  <div id="view-form" class="card" hidden>
+    <h2 id="form-title">新しいメモ</h2>
+
+    <h3>魚と釣り</h3>
+    <label for="f-fish">魚の種類</label>
+    <input type="text" id="f-fish" list="fish-names" placeholder="例:アジ">
+    <datalist id="fish-names"></datalist>
+    <div class="row">
+      <div>
+        <label for="f-date">釣った日</label>
+        <input type="date" id="f-date">
+      </div>
+      <div>
+        <label for="f-place">釣った場所</label>
+        <input type="text" id="f-place" placeholder="例:玉島港">
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label for="f-size">大きさ(cm)</label>
+        <input type="number" id="f-size" inputmode="decimal" min="0" placeholder="例:25">
+      </div>
+      <div>
+        <label for="f-count">数(匹)</label>
+        <input type="number" id="f-count" inputmode="numeric" min="0" placeholder="例:12">
+      </div>
+    </div>
+
+    <h3>下ごしらえ</h3>
+    <label for="f-age">寝かせた日数</label>
+    <input type="number" id="f-age" inputmode="numeric" min="0" placeholder="例:2(当日なら0)">
+    <label for="f-prep">下ごしらえのコツ</label>
+    <textarea id="f-prep" placeholder="例:三枚おろし。塩をふって10分おき、水気をふくと臭みが取れた"></textarea>
+
+    <h3>料理</h3>
+    <label for="f-dish">料理名</label>
+    <input type="text" id="f-dish" placeholder="例:アジの南蛮漬け">
+    <label for="f-ingredients">材料</label>
+    <textarea id="f-ingredients" placeholder="例:アジ 6匹、玉ねぎ 1個、酢 大さじ4…"></textarea>
+    <label for="f-steps">作り方</label>
+    <textarea id="f-steps" placeholder="例:1. 片栗粉をまぶして揚げる&#10;2. 熱いうちにタレに漬ける"></textarea>
+
+    <h3>味の評価</h3>
+    <label id="star-label">おいしさ</label>
+    <div class="star-input" role="radiogroup" aria-labelledby="star-label" id="star-input"></div>
+    <label class="check"><input type="checkbox" id="f-again"> また作りたい</label>
+    <label for="f-comment">感想</label>
+    <textarea id="f-comment" placeholder="例:骨までやわらかくておいしい。次は甘さひかえめに"></textarea>
+
+    <h3>写真(なくてもOK)</h3>
+    <button class="outline wide" id="photo-button" type="button">写真を追加</button>
+    <input type="file" id="photo-file" accept="image/*" multiple hidden>
+    <div class="photos" id="form-photos"></div>
+    <p class="hint">写真は自動で小さくしてから保存します。</p>
+
+    <div class="status" id="form-status"></div>
+    <div class="buttons">
+      <button class="gray" id="form-cancel" type="button">やめる</button>
+      <button id="form-save" type="button">保存</button>
+    </div>
+    <button class="red wide" id="form-delete" type="button" style="margin-top:10px" hidden>このメモを削除</button>
+  </div>
+</div>
+
+<script>
+  // =====================================================
+  //  ここから動き(プログラム)の部分
+  // =====================================================
+
+  // id から画面の部品を取り出す短い書き方
+  function $(id) { return document.getElementById(id); }
+
+  // =====================================================
+  //  データの保存場所(IndexedDB)
+  // =====================================================
+  // 写真は大きいので、localStorage より たくさん入る「IndexedDB」という
+  // ブラウザの中の保存場所を使います。下の3つの関数で出し入れします。
+  const DB_NAME = "tsuri-memo";
+  const STORE = "memos";
+  let db = null;
+
+  // 保存場所を開く(なければ作る)
+  function openDB() {
+    return new Promise(function (resolve, reject) {
+      const req = indexedDB.open(DB_NAME, 1);
+      req.onupgradeneeded = function () {
+        req.result.createObjectStore(STORE, { keyPath: "id" }); // id で1件ずつ区別する
+      };
+      req.onsuccess = function () { resolve(req.result); };
+      req.onerror = function () { reject(req.error); };
+    });
+  }
+
+  // すべてのメモを取り出す
+  function getAllMemos() {
+    return new Promise(function (resolve, reject) {
+      const req = db.transaction(STORE).objectStore(STORE).getAll();
+      req.onsuccess = function () { resolve(req.result); };
+      req.onerror = function () { reject(req.error); };
+    });
+  }
+
+  // メモを1件保存する(同じ id があれば上書き)
+  function putMemo(memo) {
+    return new Promise(function (resolve, reject) {
+      const tx = db.transaction(STORE, "readwrite");
+      tx.objectStore(STORE).put(memo);
+      tx.oncomplete = function () { resolve(); };
+      tx.onerror = function () { reject(tx.error); };
+    });
+  }
+
+  // メモを1件消す
+  function deleteMemo(id) {
+    return new Promise(function (resolve, reject) {
+      const tx = db.transaction(STORE, "readwrite");
+      tx.objectStore(STORE).delete(id);
+      tx.oncomplete = function () { resolve(); };
+      tx.onerror = function () { reject(tx.error); };
+    });
+  }
+
+  // =====================================================
+  //  画面の切りかえ(一覧・くわしく・書く)
+  // =====================================================
+  function showView(name) {
+    $("view-list").hidden = name !== "list";
+    $("view-detail").hidden = name !== "detail";
+    $("view-form").hidden = name !== "form";
+    window.scrollTo(0, 0); // 画面のいちばん上にもどる
+  }
+
+  // =====================================================
+  //  一覧
+  // =====================================================
+  let memos = []; // 全部のメモ(画面に出すために持っておく)
+
+  // 星の文字「★★★☆☆」を作る
+  function starText(n) {
+    n = n || 0;
+    return "★★★★★".slice(0, n) + "☆☆☆☆☆".slice(0, 5 - n);
+  }
+
+  // 日付「2026-11-14」を「2026/11/14」にする
+  function dateText(d) { return d ? d.replace(/-/g, "/") : "日付なし"; }
+
+  // 魚の種類のプルダウンを作り直す(メモの数も表示)
+  function renderFishFilter() {
+    const sel = $("filter-fish");
+    const before = sel.value;
+    const counts = {};
+    memos.forEach(function (m) {
+      const f = m.fish || "(魚の種類なし)";
+      counts[f] = (counts[f] || 0) + 1;
+    });
+    sel.innerHTML = "";
+    const all = document.createElement("option");
+    all.value = "";
+    all.textContent = "すべて(" + memos.length + ")";
+    sel.appendChild(all);
+    Object.keys(counts).sort().forEach(function (f) {
+      const opt = document.createElement("option");
+      opt.value = f;
+      opt.textContent = f + "(" + counts[f] + ")";
+      sel.appendChild(opt);
+    });
+    if (counts[before]) sel.value = before; // 前に選んでいた魚があれば、そのまま
+
+    // 書く画面の「魚の種類」の候補も作る(前に書いた魚から選べる)
+    const list = $("fish-names");
+    list.innerHTML = "";
+    Object.keys(counts).forEach(function (f) {
+      if (f === "(魚の種類なし)") return;
+      const opt = document.createElement("option");
+      opt.value = f;
+      list.appendChild(opt);
+    });
+  }
+
+  // 一覧を作り直す
+  function renderList() {
+    const fish = $("filter-fish").value;
+    const word = $("filter-text").value.trim();
+
+    // 魚の種類と言葉でしぼりこむ
+    const shown = memos.filter(function (m) {
+      if (fish && (m.fish || "(魚の種類なし)") !== fish) return false;
+      if (word) {
+        const all = [m.fish, m.place, m.dish, m.ingredients, m.steps, m.prep, m.comment].join(" ");
+        if (all.indexOf(word) === -1) return false;
+      }
+      return true;
+    });
+
+    // 釣った日が新しい順にならべる
+    shown.sort(function (a, b) {
+      return (b.date || "").localeCompare(a.date || "") || b.createdAt - a.createdAt;
+    });
+
+    $("count").textContent = shown.length + "件のメモ";
+    const list = $("memo-list");
+    list.innerHTML = "";
+
+    if (shown.length === 0) {
+      const li = document.createElement("li");
+      li.className = "empty";
+      li.textContent = memos.length === 0
+        ? "まだメモがありません。「＋ 新しいメモを書く」から書いてみましょう。"
+        : "見つかりませんでした。";
+      list.appendChild(li);
+      return;
+    }
+
+    shown.forEach(function (m) {
+      const li = document.createElement("li");
+      const card = document.createElement("button");
+      card.className = "memo";
+      card.type = "button";
+
+      // 写真(1枚目)か「写真なし」
+      if (m.photos && m.photos.length > 0) {
+        const img = document.createElement("img");
+        img.src = m.photos[0];
+        img.alt = "";
+        card.appendChild(img);
+      } else {
+        const no = document.createElement("div");
+        no.className = "noimg";
+        no.textContent = "写真なし";
+        card.appendChild(no);
+      }
+
+      const info = document.createElement("div");
+      info.className = "info";
+      const tag = document.createElement("span");
+      tag.className = "fish-tag";
+      tag.textContent = m.fish || "魚の種類なし";
+      const dish = document.createElement("span");
+      dish.className = "dish";
+      dish.textContent = m.dish || "(料理名なし)";
+      const meta = document.createElement("span");
+      meta.className = "meta";
+      const stars = document.createElement("span");
+      stars.className = "stars";
+      stars.textContent = starText(m.stars);
+      meta.appendChild(stars);
+      meta.appendChild(document.createTextNode(" " + dateText(m.date) + (m.place ? "・" + m.place : "")));
+      info.appendChild(tag);
+      info.appendChild(dish);
+      info.appendChild(meta);
+      card.appendChild(info);
+
+      card.addEventListener("click", function () { showDetail(m.id); });
+      li.appendChild(card);
+      list.appendChild(li);
+    });
+  }
+
+  $("filter-fish").addEventListener("change", renderList);
+  $("filter-text").addEventListener("input", renderList);
+
+  // メモを読み直して、一覧を作り直す
+  async function reload() {
+    memos = await getAllMemos();
+    renderFishFilter();
+    renderList();
+  }
+
+  // =====================================================
+  //  くわしく見る
+  // =====================================================
+  let currentId = null; // 今見ている(書きかえている)メモの id
+
+  function showDetail(id) {
+    const m = memos.find(function (x) { return x.id === id; });
+    if (!m) return;
+    currentId = id;
+    const body = $("detail-body");
+    body.innerHTML = "";
+
+    // 写真
+    if (m.photos && m.photos.length > 0) {
+      const box = document.createElement("div");
+      box.className = "detail-photos";
+      m.photos.forEach(function (src) {
+        const img = document.createElement("img");
+        img.src = src;
+        img.alt = (m.dish || "料理") + "の写真";
+        box.appendChild(img);
+      });
+      body.appendChild(box);
+    }
+
+    // 見出し
+    const tag = document.createElement("span");
+    tag.className = "fish-tag";
+    tag.textContent = m.fish || "魚の種類なし";
+    const h = document.createElement("h2");
+    h.style.margin = "8px 0 4px";
+    h.textContent = m.dish || "(料理名なし)";
+    const stars = document.createElement("div");
+    stars.className = "stars";
+    stars.style.fontSize = "22px";
+    stars.textContent = starText(m.stars) + (m.again ? "  また作りたい!" : "");
+    body.appendChild(tag);
+    body.appendChild(h);
+    body.appendChild(stars);
+
+    // 項目を表のように並べる部品
+    function addSection(title, rows) {
+      const h3 = document.createElement("h3");
+      h3.textContent = title;
+      body.appendChild(h3);
+      const dl = document.createElement("dl");
+      rows.forEach(function (r) {
+        const dt = document.createElement("dt");
+        dt.textContent = r[0];
+        const dd = document.createElement("dd");
+        dd.textContent = r[1];
+        dl.appendChild(dt);
+        dl.appendChild(dd);
+      });
+      body.appendChild(dl);
+    }
+    // 長い文章を出す部品(空なら何も出さない)
+    function addText(title, text) {
+      if (!text) return;
+      const h3 = document.createElement("h3");
+      h3.textContent = title;
+      const p = document.createElement("div");
+      p.className = "text";
+      p.textContent = text;
+      body.appendChild(h3);
+      body.appendChild(p);
+    }
+
+    addSection("魚と釣り", [
+      ["釣った日", dateText(m.date)],
+      ["場所", m.place || "-"],
+      ["大きさ", m.size ? m.size + " cm" : "-"],
+      ["数", m.count ? m.count + " 匹" : "-"],
+      ["寝かせた日数", m.age !== "" && m.age !== undefined ? m.age + " 日" : "-"]
+    ]);
+    addText("下ごしらえのコツ", m.prep);
+    addText("材料", m.ingredients);
+    addText("作り方", m.steps);
+    addText("感想", m.comment);
+
+    showView("detail");
+  }
+
+  $("detail-back").addEventListener("click", function () { showView("list"); });
+  $("detail-edit").addEventListener("click", function () { openForm(currentId); });
+
+  // =====================================================
+  //  書く画面
+  // =====================================================
+  // 書く画面の入力欄と、メモの項目名の対応
+  const FIELDS = {
+    "f-fish": "fish", "f-date": "date", "f-place": "place", "f-size": "size", "f-count": "count",
+    "f-age": "age", "f-prep": "prep", "f-dish": "dish", "f-ingredients": "ingredients",
+    "f-steps": "steps", "f-comment": "comment"
+  };
+  let formStars = 0;    // 選んでいる星の数
+  let formPhotos = [];  // 付けている写真
+
+  // 星のボタンを5つ作る
+  function renderStars() {
+    const box = $("star-input");
+    box.innerHTML = "";
+    for (let i = 1; i <= 5; i++) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = "★";
+      b.className = i <= formStars ? "on" : "";
+      b.setAttribute("role", "radio");
+      b.setAttribute("aria-checked", i === formStars ? "true" : "false");
+      b.setAttribute("aria-label", "星" + i + "つ");
+      b.addEventListener("click", function () {
+        // 同じ星をもう一度押したら 0 にもどす
+        formStars = formStars === i ? 0 : i;
+        renderStars();
+      });
+      box.appendChild(b);
+    }
+  }
+
+  // 付けている写真を表示する(×で外せる)
+  function renderFormPhotos() {
+    const box = $("form-photos");
+    box.innerHTML = "";
+    formPhotos.forEach(function (src, index) {
+      const div = document.createElement("div");
+      div.className = "photo";
+      const img = document.createElement("img");
+      img.src = src;
+      img.alt = "写真" + (index + 1);
+      const del = document.createElement("button");
+      del.type = "button";
+      del.textContent = "×";
+      del.setAttribute("aria-label", "写真" + (index + 1) + "を外す");
+      del.addEventListener("click", function () {
+        formPhotos.splice(index, 1);
+        renderFormPhotos();
+      });
+      div.appendChild(img);
+      div.appendChild(del);
+      box.appendChild(div);
+    });
+  }
+
+  // 今日の日付を「2026-11-14」の形で返す
+  function today() {
+    const d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+
+  // 書く画面を開く(id があれば、そのメモを書きかえる)
+  function openForm(id) {
+    const m = id ? memos.find(function (x) { return x.id === id; }) : null;
+    currentId = m ? m.id : null;
+    $("form-title").textContent = m ? "メモを書きかえる" : "新しいメモ";
+    Object.keys(FIELDS).forEach(function (fid) {
+      $(fid).value = m && m[FIELDS[fid]] !== undefined ? m[FIELDS[fid]] : "";
+    });
+    if (!m) $("f-date").value = today(); // 新しいメモは今日の日付にしておく
+    $("f-again").checked = m ? !!m.again : false;
+    formStars = m ? (m.stars || 0) : 0;
+    formPhotos = m && m.photos ? m.photos.slice() : [];
+    $("form-delete").hidden = !m;
+    $("form-status").textContent = "";
+    renderStars();
+    renderFormPhotos();
+    showView("form");
+  }
+
+  $("new-button").addEventListener("click", function () { openForm(null); });
+  $("form-cancel").addEventListener("click", function () {
+    if (currentId) showDetail(currentId); else showView("list");
+  });
+
+  // 写真を選んだら、小さくしてから付ける
+  $("photo-button").addEventListener("click", function () { $("photo-file").click(); });
+  $("photo-file").addEventListener("change", async function () {
+    const files = Array.from($("photo-file").files);
+    const status = $("form-status");
+    status.className = "status";
+    status.textContent = "写真を準備しています…";
+    for (const file of files) {
+      try {
+        formPhotos.push(await shrinkImage(file));
+      } catch (e) {
+        status.className = "status ng";
+        status.textContent = "読み込めない写真がありました";
+      }
+    }
+    if (status.textContent === "写真を準備しています…") status.textContent = "";
+    $("photo-file").value = ""; // 同じ写真をもう一度選べるように空にする
+    renderFormPhotos();
+  });
+
+  // 写真を、長いほうの辺が 1000px になるまで小さくする(保存する量をへらすため)
+  function shrinkImage(file) {
+    return new Promise(function (resolve, reject) {
+      const reader = new FileReader();
+      reader.onload = function () {
+        const img = new Image();
+        img.onload = function () {
+          const MAX = 1000;
+          const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL("image/jpeg", 0.75)); // JPEG の画質 75%
+        };
+        img.onerror = reject;
+        img.src = reader.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // 保存
+  $("form-save").addEventListener("click", async function () {
+    const status = $("form-status");
+    if ($("f-fish").value.trim() === "" && $("f-dish").value.trim() === "") {
+      status.className = "status ng";
+      status.textContent = "魚の種類か料理名の、どちらかは入れてください";
+      return;
+    }
+    const old = memos.find(function (x) { return x.id === currentId; });
+    const memo = {
+      id: currentId || String(Date.now()),          // 新しいメモは、今の時刻を id にする
+      createdAt: old ? old.createdAt : Date.now(),
+      stars: formStars,
+      again: $("f-again").checked,
+      photos: formPhotos.slice()
+    };
+    Object.keys(FIELDS).forEach(function (fid) {
+      memo[FIELDS[fid]] = $(fid).value.trim();
+    });
+    try {
+      await putMemo(memo);
+    } catch (e) {
+      status.className = "status ng";
+      status.textContent = "保存できませんでした。写真を減らしてもう一度ためしてください。";
+      return;
+    }
+    await reload();
+    showDetail(memo.id);
+  });
+
+  // 削除
+  $("form-delete").addEventListener("click", async function () {
+    if (!currentId) return;
+    if (!confirm("このメモを削除しますか?もとにもどせません。")) return;
+    await deleteMemo(currentId);
+    currentId = null;
+    await reload();
+    showView("list");
+  });
+
+  // =====================================================
+  //  バックアップ(書き出す・読み込む)
+  // =====================================================
+  $("export-button").addEventListener("click", function () {
+    // メモを全部、文字(JSON)にしてファイルにする
+    const text = JSON.stringify({ app: "tsuri-memo", version: 1, memos: memos });
+    const blob = new Blob([text], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "tsuri-memo_" + today() + ".json";
+    document.body.appendChild(a); // 画面に一度入れてから押すと、ファイル名が正しく付く
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000); // 少し待ってから片付ける
+    $("backup-status").className = "status ok";
+    $("backup-status").textContent = memos.length + "件のメモを書き出しました(ダウンロードフォルダに入ります)";
+  });
+
+  $("import-button").addEventListener("click", function () { $("import-file").click(); });
+  $("import-file").addEventListener("change", async function () {
+    const file = $("import-file").files[0];
+    const status = $("backup-status");
+    if (!file) return;
+    try {
+      const data = JSON.parse(await file.text());
+      if (!data || !Array.isArray(data.memos)) throw new Error("形がちがう");
+      // 今あるメモは残したまま、ファイルのメモを足す(同じメモは上書き)
+      for (const m of data.memos) {
+        if (m && m.id) await putMemo(m);
+      }
+      await reload();
+      status.className = "status ok";
+      status.textContent = data.memos.length + "件のメモを読み込みました";
+    } catch (e) {
+      status.className = "status ng";
+      status.textContent = "読み込めませんでした。このアプリで書き出したファイルを選んでください。";
+    }
+    $("import-file").value = "";
+  });
+
+  // =====================================================
+  //  ページを開いたときに最初にやること
+  // =====================================================
+  (async function start() {
+    try {
+      db = await openDB();
+      await reload();
+    } catch (e) {
+      $("count").textContent = "このブラウザでは保存ができません(プライベートモードでは使えないことがあります)";
+    }
+  })();
+</script>
+</body>
+</html>
