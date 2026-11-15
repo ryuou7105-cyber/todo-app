@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <!-- スマホの画面幅に合わせる設定 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>潮の早見表</title>
+
+  <style>
+    /* ===== 見た目(デザイン)の設定 ===== */
+    body {
+      margin: 0;
+      padding: 16px;
+      background-color: #eef3f6;
+      font-family: sans-serif;
+      font-size: 17px;
+      color: #1f2a33;
+    }
+    .container {
+      max-width: 640px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    h1 { font-size: 26px; text-align: center; margin: 8px 0 0; }
+    h2 { font-size: 20px; margin: 0 0 12px; }
+    h3 { font-size: 17px; margin: 16px 0 6px; }
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    /* 潮の種類ごとの色(背景・文字) */
+    .t-oo   { background: #fde2e1; color: #b42318; }  /* 大潮:赤 */
+    .t-naka { background: #fff0d6; color: #a15c00; }  /* 中潮:オレンジ */
+    .t-ko   { background: #dcecfb; color: #1d5fa8; }  /* 小潮:青 */
+    .t-naga { background: #e6e9ee; color: #4b5563; }  /* 長潮:灰色 */
+    .t-waka { background: #dcf3e3; color: #1a7f37; }  /* 若潮:緑 */
+
+    /* ボタン */
+    button {
+      min-height: 48px;
+      font-size: 17px;
+      padding: 0 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      color: #fff;
+      background: #0f7d8c;
+    }
+    button.gray { background: #6b7280; }
+    button.red { background: #e5484d; }
+    button.outline { background: #fff; color: #0f7d8c; border: 2px solid #0f7d8c; }
+    .buttons { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+    .buttons button { flex: 1 1 120px; }
+
+    /* ===== 月の切りかえ ===== */
+    .month-nav { display: flex; align-items: center; gap: 8px; }
+    .month-nav h2 { flex: 1; text-align: center; margin: 0; font-size: 22px; }
+    .month-nav button { min-width: 48px; padding: 0 12px; }
+    .today-row { text-align: center; margin-top: 8px; }
+    .today-row button { min-height: 40px; font-size: 15px; }
+
+    /* ===== カレンダー ===== */
+    .cal {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      margin-top: 12px;
+    }
+    .cal .head {
+      text-align: center;
+      font-size: 13px;
+      font-weight: bold;
+      color: #5f6b75;
+      padding: 4px 0;
+    }
+    .cal .head.sun { color: #c62828; }
+    .cal .head.sat { color: #1d5fa8; }
+    .day {
+      min-height: 64px;
+      min-width: 0;
+      padding: 4px 2px;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 2px;
+      font-size: 16px;
+      position: relative;
+      border: 2px solid transparent;
+    }
+    .day .num { font-weight: bold; font-size: 16px; color: #1f2a33; }
+    .day.sun .num { color: #c62828; }
+    .day.sat .num { color: #1d5fa8; }
+    .day .tide { font-size: 12px; font-weight: bold; line-height: 1.2; }
+    .day .mark {
+      font-size: 10px;
+      line-height: 1;
+      background: #0f7d8c;
+      color: #fff;
+      border-radius: 99px;
+      padding: 2px 5px;
+    }
+    .day.today { border-color: #1f2a33; }
+    .day.selected { outline: 3px solid #0f7d8c; outline-offset: 1px; }
+    .blank { min-height: 64px; }
+
+    /* 色の見本 */
+    .legend { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; font-size: 14px; }
+    .legend span { padding: 2px 10px; border-radius: 99px; font-weight: bold; }
+
+    /* 今月の大潮 */
+    .summary { margin-top: 12px; font-size: 15px; line-height: 1.7; }
+
+    /* ===== えらんだ日 ===== */
+    .day-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .day-title h2 { margin: 0; }
+    .badge { padding: 2px 12px; border-radius: 99px; font-weight: bold; font-size: 16px; }
+    .moon-info { color: #5f6b75; font-size: 15px; margin-top: 6px; }
+    label { display: block; margin: 12px 0 4px; font-weight: bold; font-size: 15px; }
+    input[type="text"], textarea {
+      width: 100%;
+      box-sizing: border-box;
+      min-height: 48px;
+      font-size: 17px;
+      font-family: inherit;
+      padding: 8px 12px;
+      border: 2px solid #c8d3da;
+      border-radius: 8px;
+      color: inherit;
+      background: #fff;
+    }
+    textarea { min-height: 96px; line-height: 1.6; }
+    .check { display: flex; align-items: center; gap: 10px; font-weight: bold; margin: 14px 0 0; min-height: 44px; }
+    .check input { width: 26px; height: 26px; margin: 0; }
+    .status { font-size: 15px; margin-top: 8px; min-height: 1em; }
+    .status.ok { color: #1a7f37; }
+    .status.ng { color: #c62828; }
+    .hint { font-size: 14px; color: #5f6b75; line-height: 1.6; margin: 6px 0 0; }
+
+    /* ===== 説明の表 ===== */
+    .tide-info { display: flex; flex-direction: column; gap: 10px; }
+    .tide-info .item { border-radius: 10px; padding: 12px; background: #f6f8fa; }
+    .tide-info .item .name { display: inline-block; padding: 2px 12px; border-radius: 99px; font-weight: bold; }
+    .tide-info dl { margin: 8px 0 0; display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; font-size: 15px; line-height: 1.6; }
+    .tide-info dt { color: #5f6b75; }
+    .tide-info dd { margin: 0; }
+
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>潮の早見表</h1>
+
+  <!-- ==================== カレンダー ==================== -->
+  <div class="card">
+    <div class="month-nav">
+      <button id="prev" aria-label="前の月">◀</button>
+      <h2 id="month-title"></h2>
+      <button id="next" aria-label="次の月">▶</button>
+    </div>
+    <div class="today-row"><button class="outline" id="to-today">今日の月にもどる</button></div>
+
+    <div class="cal" id="calendar"></div>
+
+    <div class="legend">
+      <span class="t-oo">大潮</span>
+      <span class="t-naka">中潮</span>
+      <span class="t-ko">小潮</span>
+      <span class="t-naga">長潮</span>
+      <span class="t-waka">若潮</span>
+      <span style="background:#0f7d8c;color:#fff">メモ</span>
+    </div>
+    <div class="summary" id="summary"></div>
+  </div>
+
+  <!-- ==================== えらんだ日のくわしい表示とメモ ==================== -->
+  <div class="card" id="day-card">
+    <div class="day-title">
+      <h2 id="day-date"></h2>
+      <span class="badge" id="day-tide"></span>
+    </div>
+    <div class="moon-info" id="day-moon"></div>
+
+    <label class="check"><input type="checkbox" id="m-plan"> この日に釣りに行く予定</label>
+    <label for="m-place">場所</label>
+    <input type="text" id="m-place" placeholder="例:玉島港">
+    <label for="m-result">メモ(釣れた魚・結果など)</label>
+    <textarea id="m-result" placeholder="例:アジ 12匹。夕方の満ち始めによく釣れた"></textarea>
+    <div class="buttons">
+      <button class="red" id="m-delete">メモを消す</button>
+      <button id="m-save">メモを保存</button>
+    </div>
+    <div class="status" id="m-status"></div>
+  </div>
+
+  <!-- ==================== 潮の説明 ==================== -->
+  <div class="card">
+    <h2>潮の種類と見分け方</h2>
+    <p class="hint" style="margin-top:0">
+      潮の大きさ(満潮と干潮の高さの差)は、月と太陽の引っぱる力で決まります。
+      新月・満月のころは2つの力が重なって大潮、半月のころは打ち消しあって小潮になります。
+      下の「旧暦の日」は、新月の日を1日目として数えた日付です。
+    </p>
+    <div class="tide-info" id="tide-info"></div>
+    <p class="hint">
+      ※「釣りの目安」は一般的によく言われることです。実際は、場所、天気、時間帯、魚の種類によって変わります。<br>
+      ※潮の名前の決め方は、潮見表によって少しちがうことがあり、ほかのサイトと1日ずれる日もあります。
+    </p>
+  </div>
+
+  <!-- ==================== バックアップ ==================== -->
+  <div class="card">
+    <h2>メモのバックアップ</h2>
+    <p class="hint" style="margin-top:0">
+      メモはこのスマホのブラウザの中に保存されています。スマホを買いかえるときなどは、
+      「書き出す」でファイルにして、新しいスマホで「読み込む」と移せます。
+    </p>
+    <div class="buttons">
+      <button class="outline" id="export-button">書き出す</button>
+      <button class="outline" id="import-button">読み込む</button>
+    </div>
+    <input type="file" id="import-file" accept=".json,application/json" hidden>
+    <div class="status" id="backup-status"></div>
+  </div>
+</div>
+
+<script>
+  // =====================================================
+  //  ここから動き(プログラム)の部分
+  // =====================================================
+  function $(id) { return document.getElementById(id); }
+
+  // =====================================================
+  //  潮の種類の情報
+  // =====================================================
+  // key は CSS の色分けに使う名前
+  const TIDES = {
+    oo:   { name: "大潮", short: "大潮" },
+    naka: { name: "中潮", short: "中潮" },
+    ko:   { name: "小潮", short: "小潮" },
+    naga: { name: "長潮", short: "長潮" },
+    waka: { name: "若潮", short: "若潮" }
+  };
+
+  // 旧暦の日(1日〜30日)ごとの潮の種類
+  // 1〜3:大潮 4〜6:中潮 7〜9:小潮 10:長潮 11:若潮 12〜13:中潮
+  // 14〜17:大潮 18〜21:中潮 22〜24:小潮 25:長潮 26:若潮 27〜28:中潮 29〜30:大潮
+  const TIDE_BY_LUNAR_DAY = [
+    null,
+    "oo", "oo", "oo", "naka", "naka", "naka", "ko", "ko", "ko", "naga",
+    "waka", "naka", "naka", "oo", "oo", "oo", "oo", "naka", "naka", "naka",
+    "naka", "ko", "ko", "ko", "naga", "waka", "naka", "naka", "oo", "oo"
+  ];
+
+  // 説明の表に出す内容
+  const TIDE_INFO = [
+    { key: "oo", days: "1〜3日・14〜17日・29〜30日", moon: "新月・満月のころ",
+      move: "満潮と干潮の差がいちばん大きく、潮がよく動く",
+      fishing: "魚がよく動き、釣れやすいと言われる。潮が速すぎて釣りにくい場所もある" },
+    { key: "naka", days: "4〜6日・12〜13日・18〜21日・27〜28日", moon: "大潮と小潮のあいだ",
+      move: "差はほどほどで、潮もよく動く",
+      fishing: "潮の速さがちょうどよく、釣りやすいと言われることが多い" },
+    { key: "ko", days: "7〜9日・22〜24日", moon: "半月(上弦・下弦)のころ",
+      move: "満潮と干潮の差が小さく、潮の動きがゆるい",
+      fishing: "魚の食いが落ちやすいと言われる。潮が動く時間帯をねらうとよい" },
+    { key: "naga", days: "10日・25日", moon: "小潮の終わり",
+      move: "差がいちばん小さく、満ち引きがだらだらと長く続く",
+      fishing: "いちばん釣りにくいと言われることが多い" },
+    { key: "waka", days: "11日・26日", moon: "長潮の次の日",
+      move: "潮がまた大きくなり始める(「若がえる」が名前の由来)",
+      fishing: "潮が動き始めるので、ねらい目という人もいる" }
+  ];
+
+  // =====================================================
+  //  新月の時刻の計算
+  // =====================================================
+  // 天文学の本(ジーン・ミーウス『天体計算』)にある計算式で、
+  // 新月の時刻を数分くらいの正確さで求めます。インターネットは使いません。
+  const RAD = Math.PI / 180;
+
+  // k 番目の新月の時刻(ミリ秒)を返す。k=0 は 2000年1月6日の新月
+  function newMoonTime(k) {
+    const T = k / 1236.85;
+    const T2 = T * T, T3 = T2 * T, T4 = T3 * T;
+    // 平均的な新月の時刻(ユリウス日)
+    let jde = 2451550.09766 + 29.530588861 * k + 0.00015437 * T2 - 0.000000150 * T3 + 0.00000000073 * T4;
+    const E = 1 - 0.002516 * T - 0.0000074 * T2;
+    const M  = (2.5534 + 29.10535670 * k - 0.0000014 * T2 - 0.00000011 * T3) * RAD;              // 太陽の位置
+    const Mp = (201.5643 + 385.81693528 * k + 0.0107582 * T2 + 0.00001238 * T3 - 0.000000058 * T4) * RAD; // 月の位置
+    const F  = (160.7108 + 390.67050284 * k - 0.0016118 * T2 - 0.00000227 * T3 + 0.000000011 * T4) * RAD;
+    const Om = (124.7746 - 1.56375588 * k + 0.0020672 * T2 + 0.00000215 * T3) * RAD;
+    const sin = Math.sin;
+
+    // 月と太陽の動きのゆらぎによる補正
+    jde += -0.40720 * sin(Mp)
+      + 0.17241 * E * sin(M)
+      + 0.01608 * sin(2 * Mp)
+      + 0.01039 * sin(2 * F)
+      + 0.00739 * E * sin(Mp - M)
+      - 0.00514 * E * sin(Mp + M)
+      + 0.00208 * E * E * sin(2 * M)
+      - 0.00111 * sin(Mp - 2 * F)
+      - 0.00057 * sin(Mp + 2 * F)
+      + 0.00056 * E * sin(2 * Mp + M)
+      - 0.00042 * sin(3 * Mp)
+      + 0.00042 * E * sin(M + 2 * F)
+      + 0.00038 * E * sin(M - 2 * F)
+      - 0.00024 * E * sin(2 * Mp - M)
+      - 0.00017 * sin(Om)
+      - 0.00007 * sin(Mp + 2 * M)
+      + 0.00004 * sin(2 * Mp - 2 * F)
+      + 0.00004 * sin(3 * M)
+      + 0.00003 * sin(Mp + M - 2 * F)
+      + 0.00003 * sin(2 * Mp + 2 * F)
+      - 0.00003 * sin(Mp + M + 2 * F)
+      + 0.00003 * sin(Mp - M + 2 * F)
+      - 0.00002 * sin(Mp - M - 2 * F)
+      - 0.00002 * sin(3 * Mp + M)
+      + 0.00002 * sin(4 * Mp);
+
+    // 惑星の影響による小さな補正
+    const A = [
+      [0.000325, 299.77 + 0.107408 * k - 0.009173 * T2],
+      [0.000165, 251.88 + 0.016321 * k],
+      [0.000164, 251.83 + 26.651886 * k],
+      [0.000126, 349.42 + 36.412478 * k],
+      [0.000110, 84.66 + 18.206239 * k],
+      [0.000062, 141.74 + 53.303771 * k],
+      [0.000060, 207.14 + 2.453732 * k],
+      [0.000056, 154.84 + 7.306860 * k],
+      [0.000047, 34.52 + 27.261239 * k],
+      [0.000042, 207.19 + 0.121824 * k],
+      [0.000040, 291.34 + 1.844379 * k],
+      [0.000037, 161.72 + 24.198154 * k],
+      [0.000035, 239.56 + 25.513099 * k],
+      [0.000023, 331.55 + 3.592518 * k]
+    ];
+    A.forEach(function (a) { jde += a[0] * sin(a[1] * RAD); });
+
+    // 天文学の時刻と、ふだんの時計の時刻の差(約70秒)を引く
+    const jd = jde - 70 / 86400;
+    // ユリウス日 → ミリ秒(1970年1月1日からの時間)
+    return (jd - 2440587.5) * 86400000;
+  }
+
+  const DAY = 86400000;            // 1日のミリ秒
+  const JST = 9 * 3600000;         // 日本時間は世界時より9時間進んでいる
+
+  // 日本時間の日付を「通し番号(1970年1月1日から何日目か)」にする
+  function jstDayNumber(ms) { return Math.floor((ms + JST) / DAY); }
+
+  // 計算した新月をためておく(同じ計算を何度もしないため)
+  const newMoonCache = {};
+  function newMoon(k) {
+    if (!(k in newMoonCache)) newMoonCache[k] = newMoonTime(k);
+    return newMoonCache[k];
+  }
+
+  // 日本時間の日付(年・月・日)の、潮と月の情報を出す
+  function dayInfo(y, m, d) {
+    const dayNum = Math.floor(Date.UTC(y, m - 1, d) / DAY); // その日の通し番号
+    const noon = Date.UTC(y, m - 1, d, 12) - JST;           // その日の日本時間の正午
+
+    // その日より前で、いちばん近い新月をさがす
+    let k = Math.floor((noon / DAY + 2440587.5 - 2451550.09766) / 29.530588861) + 1;
+    while (jstDayNumber(newMoon(k)) > dayNum) k--;
+    // 旧暦の日:新月の日を1日目として数える
+    const lunarDay = dayNum - jstDayNumber(newMoon(k)) + 1;
+    // 月齢:正午の時点で、新月から何日たったか
+    let kAge = k;
+    if (newMoon(kAge) > noon) kAge--;
+    const age = (noon - newMoon(kAge)) / DAY;
+
+    return {
+      lunarDay: lunarDay,
+      age: age,
+      tide: TIDE_BY_LUNAR_DAY[Math.min(lunarDay, 30)]
+    };
+  }
+
+  // 月齢から、月のようすの言葉を出す
+  function moonWord(age) {
+    if (age < 1.5 || age >= 28.5) return "新月のころ";
+    if (age >= 6.4 && age < 8.4) return "上弦の月(右半分が光る半月)のころ";
+    if (age >= 13.8 && age < 15.8) return "満月のころ";
+    if (age >= 21.1 && age < 23.1) return "下弦の月(左半分が光る半月)のころ";
+    if (age < 7.4) return "だんだん太っていく三日月";
+    if (age < 14.8) return "満月に向かってふくらむ月";
+    if (age < 22.1) return "満月から少しずつ欠けていく月";
+    return "細くなっていく月";
+  }
+
+  // =====================================================
+  //  メモの保存(このスマホのブラウザの中)
+  // =====================================================
+  // memos の中身:{ "2026-11-15": { plan: true, place: "玉島港", result: "アジ12匹" }, ... }
+  const STORAGE_KEY = "tide-memo";
+  let memos = {};
+  try { memos = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch (e) { memos = {}; }
+  function saveMemos() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(memos));
+      return true;
+    } catch (e) { return false; }
+  }
+
+  // 年・月・日を「2026-11-15」の形にする(メモの名前に使う)
+  function keyOf(y, m, d) {
+    return y + "-" + String(m).padStart(2, "0") + "-" + String(d).padStart(2, "0");
+  }
+
+  // =====================================================
+  //  カレンダー
+  // =====================================================
+  const now = new Date();
+  const todayY = now.getFullYear(), todayM = now.getMonth() + 1, todayD = now.getDate();
+  let viewY = todayY, viewM = todayM;                         // 表示している年・月
+  let selY = todayY, selM = todayM, selD = todayD;            // えらんでいる日
+
+  const WEEK = ["日", "月", "火", "水", "木", "金", "土"];
+
+  function renderCalendar() {
+    $("month-title").textContent = viewY + "年" + viewM + "月";
+    const cal = $("calendar");
+    cal.innerHTML = "";
+
+    // 曜日の見出し
+    WEEK.forEach(function (w, i) {
+      const h = document.createElement("div");
+      h.className = "head" + (i === 0 ? " sun" : i === 6 ? " sat" : "");
+      h.textContent = w;
+      cal.appendChild(h);
+    });
+
+    // 1日が何曜日かを見て、その前を空ける
+    const firstWeek = new Date(viewY, viewM - 1, 1).getDay();
+    for (let i = 0; i < firstWeek; i++) {
+      const b = document.createElement("div");
+      b.className = "blank";
+      cal.appendChild(b);
+    }
+
+    const lastDay = new Date(viewY, viewM, 0).getDate(); // その月の最後の日
+    const ooDays = []; // 大潮の日(下のまとめに使う)
+
+    for (let d = 1; d <= lastDay; d++) {
+      const info = dayInfo(viewY, viewM, d);
+      const week = (firstWeek + d - 1) % 7;
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "day t-" + info.tide +
+        (week === 0 ? " sun" : week === 6 ? " sat" : "") +
+        (viewY === todayY && viewM === todayM && d === todayD ? " today" : "") +
+        (viewY === selY && viewM === selM && d === selD ? " selected" : "");
+
+      const num = document.createElement("span");
+      num.className = "num";
+      num.textContent = d;
+      const tide = document.createElement("span");
+      tide.className = "tide";
+      tide.textContent = TIDES[info.tide].short;
+      btn.appendChild(num);
+      btn.appendChild(tide);
+
+      // メモがある日は印を付ける
+      const memo = memos[keyOf(viewY, viewM, d)];
+      if (memo) {
+        const mark = document.createElement("span");
+        mark.className = "mark";
+        mark.textContent = memo.plan ? "予定" : "メモ";
+        btn.appendChild(mark);
+      }
+
+      btn.setAttribute("aria-label", viewM + "月" + d + "日 " + TIDES[info.tide].name + (memo ? " メモあり" : ""));
+      btn.addEventListener("click", function () {
+        selY = viewY; selM = viewM; selD = d;
+        renderCalendar();
+        renderDay();
+        $("day-card").scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+      cal.appendChild(btn);
+
+      if (info.tide === "oo") ooDays.push(d);
+    }
+
+    // 今月の大潮の日を「3〜5日、17〜20日」のようにまとめる
+    const groups = [];
+    ooDays.forEach(function (d) {
+      const last = groups[groups.length - 1];
+      if (last && last[1] === d - 1) last[1] = d; else groups.push([d, d]);
+    });
+    $("summary").textContent = "この月の大潮:" + (groups.length === 0 ? "なし" :
+      groups.map(function (g) { return g[0] === g[1] ? g[0] + "日" : g[0] + "〜" + g[1] + "日"; }).join("、"));
+  }
+
+  $("prev").addEventListener("click", function () {
+    viewM--; if (viewM < 1) { viewM = 12; viewY--; }
+    renderCalendar();
+  });
+  $("next").addEventListener("click", function () {
+    viewM++; if (viewM > 12) { viewM = 1; viewY++; }
+    renderCalendar();
+  });
+  $("to-today").addEventListener("click", function () {
+    viewY = todayY; viewM = todayM;
+    selY = todayY; selM = todayM; selD = todayD;
+    renderCalendar();
+    renderDay();
+  });
+
+  // =====================================================
+  //  えらんだ日のくわしい表示とメモ
+  // =====================================================
+  function renderDay() {
+    const info = dayInfo(selY, selM, selD);
+    const week = WEEK[new Date(selY, selM - 1, selD).getDay()];
+    $("day-date").textContent = selY + "年" + selM + "月" + selD + "日(" + week + ")";
+    const badge = $("day-tide");
+    badge.className = "badge t-" + info.tide;
+    badge.textContent = TIDES[info.tide].name;
+    $("day-moon").textContent = "旧暦の" + info.lunarDay + "日目・月齢 " + info.age.toFixed(1) + "(" + moonWord(info.age) + ")";
+
+    const memo = memos[keyOf(selY, selM, selD)] || {};
+    $("m-plan").checked = !!memo.plan;
+    $("m-place").value = memo.place || "";
+    $("m-result").value = memo.result || "";
+    $("m-status").textContent = "";
+  }
+
+  $("m-save").addEventListener("click", function () {
+    const key = keyOf(selY, selM, selD);
+    const memo = {
+      plan: $("m-plan").checked,
+      place: $("m-place").value.trim(),
+      result: $("m-result").value.trim()
+    };
+    // 何も書いていなければ、メモを消したのと同じにする
+    if (!memo.plan && !memo.place && !memo.result) delete memos[key];
+    else memos[key] = memo;
+    const ok = saveMemos();
+    $("m-status").className = ok ? "status ok" : "status ng";
+    $("m-status").textContent = ok ? "保存しました" : "保存できませんでした";
+    renderCalendar();
+  });
+
+  $("m-delete").addEventListener("click", function () {
+    const key = keyOf(selY, selM, selD);
+    if (!memos[key]) {
+      $("m-status").className = "status";
+      $("m-status").textContent = "この日のメモはありません";
+      return;
+    }
+    if (!confirm(selM + "月" + selD + "日のメモを消しますか?")) return;
+    delete memos[key];
+    saveMemos();
+    renderCalendar();
+    renderDay();
+    $("m-status").className = "status ok";
+    $("m-status").textContent = "消しました";
+  });
+
+  // =====================================================
+  //  潮の説明の表
+  // =====================================================
+  function renderTideInfo() {
+    const box = $("tide-info");
+    TIDE_INFO.forEach(function (t) {
+      const item = document.createElement("div");
+      item.className = "item";
+      const name = document.createElement("span");
+      name.className = "name t-" + t.key;
+      name.textContent = TIDES[t.key].name;
+      item.appendChild(name);
+      const dl = document.createElement("dl");
+      [["旧暦の日", t.days], ["月のようす", t.moon], ["潮の動き", t.move], ["釣りの目安", t.fishing]].forEach(function (r) {
+        const dt = document.createElement("dt");
+        dt.textContent = r[0];
+        const dd = document.createElement("dd");
+        dd.textContent = r[1];
+        dl.appendChild(dt);
+        dl.appendChild(dd);
+      });
+      item.appendChild(dl);
+      box.appendChild(item);
+    });
+  }
+
+  // =====================================================
+  //  バックアップ(書き出す・読み込む)
+  // =====================================================
+  function todayKey() { return keyOf(todayY, todayM, todayD); }
+
+  $("export-button").addEventListener("click", function () {
+    const text = JSON.stringify({ app: "tide-memo", version: 1, memos: memos });
+    const blob = new Blob([text], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "tide-memo_" + todayKey() + ".json";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+    $("backup-status").className = "status ok";
+    $("backup-status").textContent = Object.keys(memos).length + "日分のメモを書き出しました(ダウンロードフォルダに入ります)";
+  });
+
+  $("import-button").addEventListener("click", function () { $("import-file").click(); });
+  $("import-file").addEventListener("change", async function () {
+    const file = $("import-file").files[0];
+    const status = $("backup-status");
+    if (!file) return;
+    try {
+      const data = JSON.parse(await file.text());
+      if (!data || typeof data.memos !== "object" || Array.isArray(data.memos)) throw new Error("形がちがう");
+      // 今あるメモは残したまま、ファイルのメモを足す(同じ日は上書き)
+      let n = 0;
+      Object.keys(data.memos).forEach(function (key) {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(key)) { memos[key] = data.memos[key]; n++; }
+      });
+      saveMemos();
+      renderCalendar();
+      renderDay();
+      status.className = "status ok";
+      status.textContent = n + "日分のメモを読み込みました";
+    } catch (e) {
+      status.className = "status ng";
+      status.textContent = "読み込めませんでした。このページで書き出したファイルを選んでください。";
+    }
+    $("import-file").value = "";
+  });
+
+  // =====================================================
+  //  ページを開いたときに最初にやること
+  // =====================================================
+  renderCalendar();
+  renderDay();
+  renderTideInfo();
+</script>
+</body>
+</html>

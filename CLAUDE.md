@@ -31,5 +31,6 @@
 - `index.html`:やることリスト
 - `warikan/index.html`:交通費わりかんアプリ
 - `tsuri/index.html`:釣り魚の料理メモ
+- `tide/index.html`:潮の早見表(潮カレンダー・釣りの予定メモ)
 - `text/gas.txt`:ガソリン代と高速代のメモ(わりかんアプリが読み込む)
 - GitHub Pages で公開中:https://ryuou7105-cyber.github.io/todo-app/
