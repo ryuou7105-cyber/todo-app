@@ -1,9 +1,11 @@
+# ガソリンの全国平均を、毎週自動で text/gas.txt に書きこむ仕組み
+# (資源エネルギー庁の発表は毎週水曜の午後。水曜と木曜の15時ごろに見に行く)
 name: Gas Price Update
 
 on:
   schedule:
-    - cron: "0 6 * * 3,4"
-  workflow_dispatch:
+    - cron: "0 6 * * 3,4"   # 世界標準時の6時 = 日本の15時
+  workflow_dispatch:         # 「Run workflow」ボタンで手動でも動かせる
 
 permissions:
   contents: write
@@ -16,13 +18,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: node gas-auto-update/scripts/update-gas.mjs
-      - name: Push if changed
+      - name: 値段を取りに行く
+        run: node scripts/update-gas.mjs
+      - name: 変わっていたら保存する
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add gas-auto-update/text/gas.txt
-          git diff --cached --quiet && echo "No changes" || {
-            git commit -m "chore: update gas prices"
+          git add text/gas.txt
+          if git diff --cached --quiet; then
+            echo "変更なし"
+          else
+            git commit -m "ガソリンの値段を自動更新"
             git push
-          }
+          fi

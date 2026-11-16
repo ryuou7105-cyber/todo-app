@@ -179,6 +179,23 @@
       text-align: center;
     }
     .per-person .big { font-size: 34px; font-weight: bold; color: #2f6fed; }
+
+    /* たたんでおけるカード(見出しを押すと開く・閉じる) */
+    details.card > summary {
+      font-size: 20px;
+      font-weight: bold;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      list-style: none;
+    }
+    details.card > summary::-webkit-details-marker { display: none; }
+    details.card > summary::before { content: "▶"; font-size: 14px; color: #2f6fed; }
+    details.card[open] > summary::before { content: "▼"; }
+    details.card[open] > summary { margin-bottom: 8px; }
+    details.card > summary small { font-size: 14px; font-weight: normal; color: #666; }
   </style>
 </head>
 <body>
@@ -186,8 +203,8 @@
   <h1>交通費わりかん</h1>
 
   <!-- ========== 1. 車の登録 ========== -->
-  <div class="card">
-    <h2>① 車を登録する</h2>
+  <details class="card" id="car-card">
+    <summary>① 車を登録する <small id="car-count"></small></summary>
     <label for="car-name">車の名前</label>
     <input type="text" id="car-name" placeholder="例:パパのプリウス">
     <div class="row">
@@ -207,12 +224,11 @@
     <button class="wide" id="car-add">車を登録</button>
     <p class="hint">燃費は、カタログの数字より少し低め(実際に走ったときの数字)にすると、実際の値段に近くなります。</p>
     <ul id="car-list"></ul>
-  </div>
+  </details>
 
-  <!-- ========== 2. ガソリンの値段 ========== -->
   <!-- ========== よく使う場所・ICの登録 ========== -->
-  <div class="card">
-    <h2>よく使う場所・ICを登録する</h2>
+  <details class="card" id="place-card">
+    <summary>よく使う場所・ICを登録する <small id="place-count"></small></summary>
     <p class="hint" style="margin-top:0">ここで登録しておくと、③で「登録から選ぶ」のプルダウンから選べるようになります。</p>
 
     <h3>場所</h3>
@@ -237,8 +253,9 @@
       ICの住所を調べて入れ、もう一度登録してください。<br>
       同じ「乗るIC→降りるIC」で一度料金を入れると、次からは料金も自動で入ります。
     </p>
-  </div>
+  </details>
 
+  <!-- ========== 2. ガソリンの値段 ========== -->
   <div class="card">
     <h2>② ガソリンの値段(1Lあたり)</h2>
     <div class="row">
@@ -256,9 +273,9 @@
       </div>
     </div>
     <p class="hint">
-      全国平均は国(資源エネルギー庁)が毎週水曜日に発表しています。
-      <a href="https://www.enecho.meti.go.jp/statistics/petroleum_and_lpgas/pl007/results.html" target="_blank" rel="noopener">最新の全国平均を見る</a>
-      ときどき見て、数字を書きかえてください(入れた数字は覚えておきます)。
+      全国平均(国の資源エネルギー庁が毎週水曜日に発表)を、毎週自動で読み込みます。
+      いつも入れるスタンドの値段にしたいときは、手で書きかえてください。手で入れた数字は、次に全国平均が変わるまで使います。
+      <a href="https://www.enecho.meti.go.jp/statistics/petroleum_and_lpgas/pl007/results.html" target="_blank" rel="noopener">国の発表を見る</a>
     </p>
     <div class="status" id="file-status"></div>
     <div class="status" id="price-fresh"></div>
@@ -336,8 +353,8 @@
         <option value="auto" selected>自動で判定する(おすすめ)</option>
         <option value="0">割引なし</option>
         <option value="file">割引あり(テキストの料金)</option>
-        <option value="0.3">休日割引(30%引き)</option>
-        <option value="0.3">深夜割引(30%引き)</option>
+        <option value="holiday">休日割引(30%引き)</option>
+        <option value="night">深夜割引(30%引き)</option>
       </select>
       <div class="hint" id="go-discount-note"></div>
       <p class="hint">
@@ -346,7 +363,8 @@
       </p>
     </div>
 
-    <button class="wide" id="go-search">行きの距離を自動で調べる</button>
+    <p class="hint">住所・経由地・ICを入れると、距離は自動で調べます。調べ直したいときは下のボタンを押してください。</p>
+    <button class="wide outline" id="go-search">行きの距離を調べ直す</button>
     <div class="status" id="go-status"></div>
     <label for="go-km">行きの距離(km)</label>
     <input type="number" id="go-km" inputmode="decimal" min="0" placeholder="自動で入ります。手で入れてもOK">
@@ -413,16 +431,16 @@
         <option value="auto" selected>自動で判定する(おすすめ)</option>
         <option value="0">割引なし</option>
         <option value="file">割引あり(テキストの料金)</option>
-        <option value="0.3">休日割引(30%引き)</option>
-        <option value="0.3">深夜割引(30%引き)</option>
+        <option value="holiday">休日割引(30%引き)</option>
+        <option value="night">深夜割引(30%引き)</option>
       </select>
       <div class="hint" id="back-discount-note"></div>
     </div>
 
-    <button class="wide" id="back-search">帰りの距離を自動で調べる</button>
+    <button class="wide outline" id="back-search">帰りの距離を調べ直す</button>
     <div class="status" id="back-status"></div>
     <label for="back-km">帰りの距離(km)</label>
-    <input type="number" id="back-km" inputmode="decimal" min="0" placeholder="空のときは行きと同じ距離で計算します">
+    <input type="number" id="back-km" inputmode="decimal" min="0" placeholder="自動で入ります。空のときは行きと同じ距離">
     <p class="hint"><a id="back-map" href="#" target="_blank" rel="noopener">Googleマップで道順と距離を確かめる</a></p>
 
     <!-- ---- その他 ---- -->
@@ -467,10 +485,24 @@
       <div class="status" id="pattern-status"></div>
       <p class="hint">同じ名前で保存すると、新しい内容に上書きされます。</p>
     </div>
+    <button class="wide" id="share" hidden>結果を送る(LINEなどを選べます)</button>
     <button class="wide" id="copy">結果をコピー(LINEなどに貼れます)</button>
     <button class="wide gray" id="reset">今回の移動を空にする</button>
     <div class="status" id="copy-status"></div>
   </div>
+
+  <!-- ========== バックアップ ========== -->
+  <details class="card" id="backup-card">
+    <summary>バックアップ(書き出し・読み込み)</summary>
+    <p class="hint" style="margin-top:0">
+      登録した車・場所・IC・パターンを、ファイルに書き出して残せます。
+      スマホを買いかえたときや、データが消えてしまったときに、読み込めば元にもどせます。
+    </p>
+    <button class="wide" id="backup-export">データを書き出す</button>
+    <button class="wide outline" id="backup-import">書き出したファイルを読み込む</button>
+    <input type="file" id="backup-file" accept=".json,application/json" hidden>
+    <div class="status" id="backup-status"></div>
+  </details>
 </div>
 
 <script>
@@ -548,14 +580,23 @@
       del.className = "red";
       del.textContent = "削除";
       del.addEventListener("click", function () {
+        if (!confirm("「" + car.name + "」を削除しますか?")) return;
+        // 今選んでいる車を名前で覚えておく(消すと番号がずれるので、あとで選び直す)
+        const selected = data.cars[$("trip-car").value];
         data.cars.splice(index, 1); // index番目の車を消す
         save();
         renderCars();
+        const again = data.cars.indexOf(selected);
+        if (again !== -1) $("trip-car").value = again;
+        saveTrip();
+        calc();
       });
       li.appendChild(span);
       li.appendChild(del);
       list.appendChild(li);
     });
+
+    $("car-count").textContent = data.cars.length > 0 ? "(" + data.cars.length + "台)" : "";
 
     // 「使う車」の選択肢も作り直す
     const select = $("trip-car");
@@ -611,6 +652,7 @@
       del.className = "red";
       del.textContent = "削除";
       del.addEventListener("click", function () {
+        if (!confirm("「" + item.name + "」を削除しますか?")) return;
         items.splice(index, 1); // index番目を消す
         save();
         renderRegistry();
@@ -635,6 +677,8 @@
       small.textContent = ic.lon !== undefined ? "位置あり" : "位置なし";
       span.appendChild(small);
     });
+
+    $("place-count").textContent = "(場所 " + data.places.length + "・IC " + data.ics.length + ")";
 
     document.querySelectorAll("select.pick").forEach(fillPick);
   }
@@ -771,7 +815,8 @@
   //   prices: { regular: 165, ... }
   //   tolls:  { "玉島IC→庄原IC": { normal: 2060, discount: 1440 }, ... }
   //   ics:    ["玉島IC", "庄原IC", ...]
-  let fileData = { prices: {}, tolls: {}, ics: [] };
+  //   date:   "2026-11-09"(値段を調べた日。書いてなければ "")
+  let fileData = { prices: {}, tolls: {}, ics: [], date: "" };
 
   // ICの名前を比べやすくする(空白を取る)
   function icKey(a, b) { return a.replace(/\s/g, "") + "→" + b.replace(/\s/g, ""); }
@@ -781,7 +826,7 @@
   // ・「玉島IC 庄原IC 2060 3割引1440」のような行 → 高速代(通常と割引あり)
   // ・それ以外の行(「ガソリン」「高速代」などの見出し)は読みとばす
   function parseGasText(text) {
-    const result = { prices: {}, tolls: {}, ics: [] };
+    const result = { prices: {}, tolls: {}, ics: [], date: "" };
     const fuelWords = { "レギュラー": "regular", "ハイオク": "premium", "軽油": "diesel" };
     text.split(/\r?\n/).forEach(function (raw) {
       // 全角の数字を半角に、「,」と「円」は消しておく
@@ -790,6 +835,13 @@
         .replace(/[,，円]/g, "")
         .trim();
       if (line === "") return;
+
+      // 「調査日 2026-11-09」の行 → 値段を調べた日
+      const dm = line.match(/^(調査日|確認日|更新日)\D*(\d{4})\D(\d{1,2})\D(\d{1,2})/);
+      if (dm) {
+        result.date = dm[2] + "-" + pad2(dm[3]) + "-" + pad2(dm[4]);
+        return;
+      }
 
       // ガソリンの行
       for (const word in fuelWords) {
@@ -850,37 +902,69 @@
     });
   }
 
+  // テキストを取りに行く場所。上から順にためして、最初に読めたものを使う
+  // 1番目は GitHub の倉庫から直接(自動更新がいちばん早く届く)、2番目はこのページと同じ場所
+  function gasFileUrls() {
+    const urls = [];
+    const m = location.hostname.match(/^(.+)\.github\.io$/);
+    const repo = location.pathname.split("/")[1];
+    if (m && repo) urls.push("https://raw.githubusercontent.com/" + m[1] + "/" + repo + "/HEAD/text/gas.txt");
+    urls.push("../text/gas.txt");
+    return urls;
+  }
+
   // ページを開いたときにテキストを読み込む
   async function loadGasFile() {
     const status = $("file-status");
-    try {
-      // cache: "no-store" で、いつも最新のファイルを取りに行く
-      const res = await fetch("../text/gas.txt", { cache: "no-store" });
-      if (!res.ok) throw new Error("not found");
-      fileData = parseGasText(await res.text());
-    } catch (e) {
+    let loaded = null;
+    for (const url of gasFileUrls()) {
+      try {
+        // cache: "no-store" で、いつも最新のファイルを取りに行く
+        const res = await fetch(url, { cache: "no-store" });
+        if (!res.ok) continue;
+        const parsed = parseGasText(await res.text());
+        // 中身が読み取れたときだけ使う
+        if (Object.keys(parsed.prices).length > 0 || Object.keys(parsed.tolls).length > 0) {
+          loaded = parsed;
+          break;
+        }
+      } catch (e) { /* 読めなかったら次の場所をためす */ }
+    }
+    if (!loaded) {
       // ダウンロードしたファイルで開いたときなどは読めないので、手入力のまま使う
       status.textContent = "";
       return;
     }
-    // ガソリンの値段を入れる(書いてない燃料は、前の値のまま)
+    fileData = loaded;
+
+    // テキストの値段が「前に取りこんだとき」から変わっていたら、画面の値段を入れかえる。
+    // 変わっていなければ、手で入れた値段をそのまま使う(開くたびに消えないように)
     const names = [];
     ["regular", "premium", "diesel"].forEach(function (fuel) {
-      if (fileData.prices[fuel] !== undefined) {
-        data.prices[fuel] = fileData.prices[fuel];
-        $("price-" + fuel).value = fileData.prices[fuel];
-        names.push(FUEL_NAMES[fuel] + " " + fileData.prices[fuel] + "円");
-      }
+      if (fileData.prices[fuel] !== undefined) names.push(FUEL_NAMES[fuel] + " " + fileData.prices[fuel] + "円");
     });
-    if (names.length) data.priceUpdatedAt = todayStr();
+    const sig = JSON.stringify(fileData.prices) + "|" + fileData.date;
+    if (names.length && data.filePriceSig !== sig) {
+      ["regular", "premium", "diesel"].forEach(function (fuel) {
+        if (fileData.prices[fuel] !== undefined) {
+          data.prices[fuel] = fileData.prices[fuel];
+          $("price-" + fuel).value = fileData.prices[fuel];
+        }
+      });
+      data.filePriceSig = sig;
+      data.priceManual = false;
+      data.priceDated = fileData.date !== "";           // 調査日がわかっているか
+      data.priceUpdatedAt = fileData.date || todayStr(); // 調査日がなければ、取りこんだ日
+    }
     save();
     updatePriceFresh();
     const tollCount = Object.keys(fileData.tolls).length;
     status.className = "status ok";
-    status.textContent = "テキストから読み込みました:" +
+    status.textContent = (data.priceManual ? "テキストの全国平均:" : "テキストから読み込みました:") +
       (names.length ? names.join("・") : "ガソリン代なし") + "/高速代 " + tollCount + "区間";
     renderRegistry();
     updateFileHints();
+    updateDiscountNotes();
     calc();
   }
 
@@ -974,6 +1058,7 @@
     input.addEventListener("input", function () {
       data.prices[fuel] = num("price-" + fuel);
       data.priceUpdatedAt = todayStr();
+      data.priceManual = true; // 手で入れた印(次にテキストの値段が変わるまで、この数字を使う)
       save();
       updatePriceFresh();
       calc();
@@ -989,10 +1074,36 @@
   ("2026-01-01 2026-01-12 2026-02-11 2026-02-23 2026-03-20 2026-04-29 " +
     "2026-05-03 2026-05-04 2026-05-05 2026-05-06 2026-07-20 2026-08-11 " +
     "2026-09-21 2026-09-22 2026-09-23 2026-10-12 2026-11-03 2026-11-23 " +
-    "2027-01-01 2027-01-11 2027-02-11 2027-02-23 2027-03-20 2027-04-29 " +
+    "2027-01-01 2027-01-11 2027-02-11 2027-02-23 2027-03-21 2027-03-22 2027-04-29 " +
     "2027-05-03 2027-05-04 2027-05-05 2027-07-19 2027-08-11 " +
     "2027-09-20 2027-09-23 2027-10-11 2027-11-03 2027-11-23"
   ).split(" ").forEach(function (d) { HOLIDAYS[d] = true; });
+
+  // 祝日は、インターネットの祝日データ(内閣府の発表がもと)から自動で取り直す。
+  // 上の一覧は、取れなかったとき用の予備。取れたデータは覚えておき、30日たったらまた取りに行く
+  function applyHolidays(list) {
+    Object.keys(list || {}).forEach(function (d) { HOLIDAYS[d] = true; });
+  }
+  applyHolidays(data.holidays);
+  async function loadHolidays() {
+    if (data.holidaysAt &&
+        (parseDateStr(todayStr()) - parseDateStr(data.holidaysAt)) / 86400000 < 30) return;
+    try {
+      const res = await fetch("https://holidays-jp.github.io/api/v1/date.json");
+      if (!res.ok) return;
+      const json = await res.json();
+      // 「2026-11-03」の形の日付だけを使う(ちがう形のデータは入れない)
+      const list = {};
+      Object.keys(json).forEach(function (d) { if (/^\d{4}-\d{2}-\d{2}$/.test(d)) list[d] = true; });
+      if (Object.keys(list).length === 0) return;
+      data.holidays = list;
+      data.holidaysAt = todayStr();
+      save();
+      applyHolidays(list);
+      updateDiscountNotes();
+      calc();
+    } catch (e) { /* 取れなくても、予備の一覧で動く */ }
+  }
 
   // 今日の日付を "2026-11-16" の形にする
   function todayStr() {
@@ -1058,9 +1169,7 @@
     ["go", "back"].forEach(function (prefix) {
       const box = $(prefix + "-discount-note");
       if (!box) return;
-      box.textContent = $(prefix + "-discount").value === "auto"
-        ? "自動判定:" + judgeDiscount(prefix).reason
-        : "";
+      box.textContent = tollInfo(prefix).note;
     });
   }
 
@@ -1070,12 +1179,17 @@
     if (!box) return;
     if (!data.priceUpdatedAt) { box.textContent = ""; return; }
     const days = Math.floor((parseDateStr(todayStr()) - parseDateStr(data.priceUpdatedAt)) / 86400000);
+    // どこから来た値段かを、正直に書く
+    const what = data.priceManual ? " に手で入れたものです。"
+      : data.priceDated ? " 調査の全国平均です(毎週自動で更新)。"
+      : " に確認したものです。";
     if (days >= 30) {
       box.className = "status ng";
-      box.textContent = "ガソリンの値段は " + data.priceUpdatedAt + "(" + days + "日前)のままです。ときどき見直してください。";
+      box.textContent = "ガソリンの値段は " + data.priceUpdatedAt + "(" + days + "日前)のままです。" +
+        (data.priceManual ? "ときどき見直してください。" : "自動更新が止まっているかもしれません。");
     } else {
       box.className = "status";
-      box.textContent = "ガソリンの値段は " + data.priceUpdatedAt + " に確認したものです。";
+      box.textContent = "ガソリンの値段は " + data.priceUpdatedAt + what;
     }
   }
 
@@ -1189,6 +1303,19 @@
     return list[0].geometry.coordinates; // [経度, 緯度] の順で入っている
   }
 
+  // 距離を調べるとき用:住所 → 位置。同じ住所を何度も聞きに行かないよう、ページを開いている間は覚えておく
+  const pointCache = {};
+  async function pointOf(address) {
+    const reg = pointForAddress(address); // 登録した場所なら、覚えてある位置を使う
+    if (reg) return reg;
+    if (!pointCache[address]) {
+      // 「調べている途中」の約束ごと覚える(行きと帰りが同時に同じ住所を聞きに行かないように)
+      pointCache[address] = addressToPoint(address);
+      pointCache[address].catch(function () { delete pointCache[address]; }); // 失敗は覚えない
+    }
+    return pointCache[address];
+  }
+
   // ICの名前から位置を探す(OpenStreetMapの無料の検索サービスを使う)
   // 見つかった場所が「IC(インターチェンジ)」のときだけ使う。違う場所をまちがって使わないため
   async function findIcPoint(name) {
@@ -1232,10 +1359,37 @@
     return json.routes[0].distance / 1000; // メートル → キロメートル
   }
 
-  // 「距離を自動で調べる」ボタンの動き(行き・帰りで共通)
+  // ---------- 距離を「自動で」調べるための仕組み ----------
+  // 道順を決める入力(住所・経由地・IC)を1つの文字にまとめたもの。
+  // これが「最後に調べたとき」と変わっていたら、調べ直す
+  function routeSig(prefix) {
+    const addr = legAddresses(prefix);
+    const hw = $(prefix + "-hw").checked;
+    return JSON.stringify([
+      addr.from, addr.to, viaList(prefix),
+      hw ? $(prefix + "-ic-in").value.trim() : "",
+      hw ? $(prefix + "-ic-out").value.trim() : ""
+    ]);
+  }
+  let routeSigs = { go: null, back: null }; // 最後に調べたときの道順
+  const autoTimer = { go: null, back: null };
+  const searchSeq = { go: 0, back: 0 };     // 調べた回数(古い返事が後から届いても使わないため)
+
+  // 入力が止まって1.5秒たったら調べる(1文字打つたびに調べに行かないように)
+  function scheduleAutoSearch() {
+    ["go", "back"].forEach(function (prefix) {
+      if (routeSig(prefix) === routeSigs[prefix]) return; // 道順は変わっていない
+      clearTimeout(autoTimer[prefix]);
+      const addr = legAddresses(prefix);
+      if (addr.from === "" || addr.to === "") return;     // まだ入力の途中
+      autoTimer[prefix] = setTimeout(function () { searchDistance(prefix, true); }, 1500);
+    });
+  }
+
+  // 距離を調べる(行き・帰りで共通)。auto が true なら、自動で動いたとき
   // 行き:出発 → 経由地 → 乗るIC → 降りるIC → 到着
   // 帰り:出発 → 乗るIC → 降りるIC → 経由地 → 到着  の順に通る道のりで計算する
-  async function searchDistance(prefix) {
+  async function searchDistance(prefix, auto) {
     const addr = legAddresses(prefix);
     const status = $(prefix + "-status");
     if (addr.from === "" || addr.to === "") {
@@ -1243,6 +1397,9 @@
       status.textContent = "出発と到着の住所を両方入れてください";
       return;
     }
+    clearTimeout(autoTimer[prefix]);
+    const sig = routeSig(prefix);        // 今から調べる道順
+    const ticket = ++searchSeq[prefix];  // 今回の整理番号
     status.className = "status";
     status.textContent = "調べています…";
     try {
@@ -1252,7 +1409,7 @@
       // 経由地の住所を緯度・経度に変える
       const viaNames = viaList(prefix);
       const viaPoints = [];
-      for (const v of viaNames) viaPoints.push(pointForAddress(v) || await addressToPoint(v));
+      for (const v of viaNames) viaPoints.push(await pointOf(v));
 
       // ICの位置を集める
       const icPoints = [];
@@ -1267,13 +1424,15 @@
 
       // 通る順番に並べる(行きは経由地が先、帰りはICが先)
       const middle = prefix === "go" ? viaPoints.concat(icPoints) : icPoints.concat(viaPoints);
-      const fromPoint = pointForAddress(addr.from) || await addressToPoint(addr.from);
-      const toPoint = pointForAddress(addr.to) || await addressToPoint(addr.to);
+      const fromPoint = await pointOf(addr.from);
+      const toPoint = await pointOf(addr.to);
       const points = [fromPoint].concat(middle, [toPoint]);
 
       const km = await roadDistanceKm(points);
+      if (ticket !== searchSeq[prefix]) return; // 調べている間に入力が変わった → 新しい方にまかせる
+      routeSigs[prefix] = sig;
       $(prefix + "-km").value = km.toFixed(1); // 小数第1位まで
-      let msg = "約 " + km.toFixed(1) + " km でした";
+      let msg = (auto ? "自動で調べました:" : "") + "約 " + km.toFixed(1) + " km でした";
       const passed = [];
       if (viaNames.length > 0) passed.push("経由地" + viaNames.length + "か所");
       if (via.length > 0) passed.push(via.join("・"));
@@ -1287,12 +1446,15 @@
       saveTrip();
       calc();
     } catch (e) {
+      if (ticket !== searchSeq[prefix]) return;
+      routeSigs[prefix] = sig; // 同じ道順で何度も失敗をくり返さない(ボタンを押せば、また調べる)
+      saveTrip();
       status.className = "status ng";
-      status.textContent = "自動で調べられませんでした。下のGoogleマップのリンクで調べて、距離を手で入れてください。";
+      status.textContent = "自動で調べられませんでした。住所を見直すか、下のGoogleマップのリンクで調べて、距離を手で入れてください。";
     }
   }
-  $("go-search").addEventListener("click", function () { searchDistance("go"); });
-  $("back-search").addEventListener("click", function () { searchDistance("back"); });
+  $("go-search").addEventListener("click", function () { searchDistance("go", false); });
+  $("back-search").addEventListener("click", function () { searchDistance("back", false); });
 
   // Googleマップのリンクを、入力された住所とICに合わせて作る(ICは経由地にする)
   function updateMapLinks() {
@@ -1326,19 +1488,38 @@
   //  ④ 計算
   // =====================================================
   // 高速料金を計算する(割引をかける)
-  function tollOf(prefix) {
-    if (!$(prefix + "-hw").checked) return 0; // 高速を使わないなら 0円
+  // 戻り値は { amount: 払う金額, note: 画面に出す説明の文 }
+  function tollInfo(prefix) {
+    if (!$(prefix + "-hw").checked) return { amount: 0, note: "" }; // 高速を使わないなら 0円
     const toll = num(prefix + "-toll");
     const choice = $(prefix + "-discount").value;
+    const ft = fileToll(prefix);
+
+    if (choice === "0") return { amount: toll, note: "" };
     if (choice === "file") {
       // テキストの「割引あり」の料金を使う(書いてなければ割引なし)
-      const ft = fileToll(prefix);
-      return ft && ft.discount !== null ? ft.discount : toll;
+      return { amount: ft && ft.discount !== null ? ft.discount : toll, note: "" };
     }
-    // 「自動で判定する」のときは、出発する日と時刻から割引率を決める
-    const discount = choice === "auto" ? judgeDiscount(prefix).rate : parseFloat(choice); // 0 か 0.3
-    return Math.round(toll * (1 - discount));
+
+    // 「自動で判定する」のときは、出発する日と時刻から、割引が使えるかを決める
+    let reason = "";
+    if (choice === "auto") {
+      const judged = judgeDiscount(prefix);
+      reason = "自動判定:" + judged.reason;
+      if (judged.rate === 0) return { amount: toll, note: reason };
+    }
+    // ここまで来たら「割引あり」。
+    // テキストに割引後の料金が書いてあり、料金欄がテキストの通常料金のままなら、その金額を使う。
+    // (橋をわたる区間などは、ぴったり30%引きにならないため。テキストの金額の方が正しい)
+    if (ft && ft.discount !== null && toll === ft.normal) {
+      return {
+        amount: ft.discount,
+        note: (reason ? reason + "。" : "") + "テキストに書いてある割引後の料金 " + yen(ft.discount) + " を使います"
+      };
+    }
+    return { amount: Math.round(toll * 0.7), note: reason }; // それ以外は30%引きで計算
   }
+  function tollOf(prefix) { return tollInfo(prefix).amount; }
 
   let lastResultText = ""; // コピー用の文章
   let lastTotal = 0;       // 今の合計金額
@@ -1455,6 +1636,8 @@
     });
     data.trip["go-via"] = vias.go.slice();
     data.trip["back-via"] = vias.back.slice();
+    data.trip["go-sig"] = routeSigs.go;     // 最後に距離を調べたときの道順
+    data.trip["back-sig"] = routeSigs.back;
     save();
   }
 
@@ -1462,8 +1645,11 @@
     TRIP_FIELDS.forEach(function (id) {
       if (!(id in data.trip)) return;
       const el = $(id);
-      if (el.type === "checkbox") el.checked = data.trip[id];
-      else el.value = data.trip[id];
+      let value = data.trip[id];
+      // 前のバージョンでは、休日割引も深夜割引も "0.3" で保存していたので、新しい形に直す
+      if ((id === "go-discount" || id === "back-discount") && value === "0.3") value = "holiday";
+      if (el.type === "checkbox") el.checked = value;
+      else el.value = value;
     });
     // 経由地(前のバージョンのデータにはないので、なければ空にする)
     vias = {
@@ -1474,6 +1660,15 @@
     renderVias("back");
     syncDateTimeSelects("go");
     syncDateTimeSelects("back");
+    // 最後に距離を調べたときの道順。
+    // 前のバージョンのデータ(記録なし)で、もう距離が入っているなら「今の道順で調べ済み」とみなす
+    // (開いただけ・呼び出しただけで、手で入れた距離を書きかえないため)
+    const hasKm = $("go-km").value !== "";
+    ["go", "back"].forEach(function (prefix) {
+      routeSigs[prefix] = data.trip[prefix + "-sig"] || (hasKm ? routeSig(prefix) : null);
+    });
+    prevGoDate = $("go-date").value;
+    prevBackHw = $("back-hw").checked;
   }
 
   // 入力が変わるたびに:保存 → 表示切りかえ → 計算
@@ -1481,8 +1676,28 @@
     $(id).addEventListener("input", onTripChange);
     $(id).addEventListener("change", onTripChange);
   });
+  let prevGoDate = "";    // 1つ前の「行きの日」
+  let prevBackHw = false; // 1つ前の「帰りに高速を使う」のチェック
   function onTripChange() {
+    // 行きの日を変えたとき、帰りの日が前の行きの日と同じ(日帰り)なら、帰りの日もそろえる
+    const goDate = $("go-date").value;
+    if (goDate !== prevGoDate) {
+      if ($("back-date").value === prevGoDate || $("back-date").value === "") {
+        $("back-date").value = goDate;
+        syncDateTimeSelects("back");
+      }
+      prevGoDate = goDate;
+    }
+    // 帰りに高速を使うチェックを入れたとき、帰りのICが空なら、行きのICを逆にして入れておく
+    const backHw = $("back-hw").checked;
+    if (backHw && !prevBackHw &&
+        $("back-ic-in").value === "" && $("back-ic-out").value === "" &&
+        $("go-ic-in").value !== "" && $("go-ic-out").value !== "") {
+      fillBackIcs();
+    }
+    prevBackHw = backHw;
     saveTrip();
+    scheduleAutoSearch();
     updateVisibility();
     updateMapLinks();
     updateFileHints();
@@ -1503,6 +1718,14 @@
       status.textContent = "コピーできませんでした";
     });
   });
+
+  // スマホの「共有」画面を出して、LINEなどに直接送る(使えるスマホ・ブラウザのときだけボタンを出す)
+  if (navigator.share) {
+    $("share").hidden = false;
+    $("share").addEventListener("click", function () {
+      navigator.share({ text: lastResultText }).catch(function () { /* 途中でやめたときは何もしない */ });
+    });
+  }
 
   // =====================================================
   //  パターンの保存・呼び出し
@@ -1646,16 +1869,69 @@
     vias = { go: [], back: [] };
     renderVias("go");
     renderVias("back");
+    routeSigs = { go: null, back: null };
+    prevGoDate = $("go-date").value;
+    prevBackHw = false;
     loadedPattern = null;
     renderPatterns();
     onTripChange();
   });
 
   // 帰りのIC欄に、行きのICを逆にして入れる
-  $("back-ic-fill").addEventListener("click", function () {
+  function fillBackIcs() {
     $("back-ic-in").value = $("go-ic-out").value;
     $("back-ic-out").value = $("go-ic-in").value;
+    // 料金の自動入力(テキスト・前に入れた料金)も動かす
+    const ft = fileToll("back");
+    const key = tollKey("back");
+    if (ft) $("back-toll").value = ft.normal;
+    else if (key && data.tolls[key]) $("back-toll").value = data.tolls[key];
+  }
+  $("back-ic-fill").addEventListener("click", function () {
+    fillBackIcs();
     onTripChange();
+  });
+
+  // =====================================================
+  //  バックアップ(書き出し・読み込み)
+  // =====================================================
+  $("backup-export").addEventListener("click", function () {
+    saveTrip();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "warikan-backup-" + todayStr() + ".json";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+    $("backup-status").className = "status ok";
+    $("backup-status").textContent = "書き出しました(ダウンロードのフォルダに入ります)";
+  });
+  $("backup-import").addEventListener("click", function () { $("backup-file").click(); });
+  $("backup-file").addEventListener("change", async function () {
+    const file = $("backup-file").files[0];
+    const status = $("backup-status");
+    if (!file) return;
+    try {
+      const obj = JSON.parse(await file.text());
+      // 受け入れ検査:このアプリのデータの形をしているか
+      if (!obj || !Array.isArray(obj.cars) || typeof obj.prices !== "object" || obj.prices === null) {
+        throw new Error("形がちがう");
+      }
+      if (!confirm("今のデータを、このファイルの中身(車 " + obj.cars.length + "台・パターン " +
+          (obj.patterns || []).length + "件)に入れかえます。よろしいですか?")) {
+        $("backup-file").value = "";
+        return;
+      }
+      if (typeof obj.trip !== "object" || obj.trip === null) obj.trip = {};
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
+      location.reload(); // 読み込んだデータで、ページを開き直す
+    } catch (e) {
+      status.className = "status ng";
+      status.textContent = "読み込めませんでした。このアプリで書き出したファイルを選んでください。";
+      $("backup-file").value = "";
+    }
   });
 
   // =====================================================
@@ -1674,9 +1950,14 @@
   if (!$("back-date").value) $("back-date").value = $("go-date").value;
   syncDateTimeSelects("go");
   syncDateTimeSelects("back");
+  prevGoDate = $("go-date").value;
   updateDiscountNotes();
   updatePriceFresh();
-  loadGasFile(); // テキストの値段を読み込む(読めたら計算し直す)
+  // 車をもう登録してあれば、登録用のカードはたたんでおく(毎回使う③がすぐ見えるように)
+  $("car-card").open = data.cars.length === 0;
+  $("place-card").open = data.cars.length === 0;
+  loadGasFile();  // テキストの値段を読み込む(読めたら計算し直す)
+  loadHolidays(); // 祝日を取り直す(取れたら割引を判定し直す)
 </script>
 </body>
 </html>
