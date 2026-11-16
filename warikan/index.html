@@ -261,6 +261,7 @@
       ときどき見て、数字を書きかえてください(入れた数字は覚えておきます)。
     </p>
     <div class="status" id="file-status"></div>
+    <div class="status" id="price-fresh"></div>
   </div>
 
   <!-- ========== 3. 今回の移動 ========== -->
@@ -282,6 +283,17 @@
 
     <!-- ---- 行き ---- -->
     <h3>行き</h3>
+    <div class="row">
+      <div>
+        <label for="go-date">出発する日</label>
+        <input type="date" id="go-date">
+      </div>
+      <div>
+        <label for="go-time">出発する時刻</label>
+        <input type="time" id="go-time">
+      </div>
+    </div>
+    <p class="hint">日と時刻を入れると、ETC割引(休日・深夜)が使えるかを自動で判定します。</p>
     <label for="go-from">出発する住所</label>
     <select class="pick" data-kind="place" data-target="go-from" aria-label="登録した場所から選ぶ"></select>
     <input type="text" id="go-from" placeholder="例:東京都千代田区丸の内1-9-1">
@@ -307,16 +319,18 @@
           <input type="text" id="go-ic-out" placeholder="例:静岡IC">
         </div>
       </div>
-      <label for="go-toll">高速料金(円)</label>
+      <label for="go-toll">高速料金(円・割引なしの通常料金)</label>
       <input type="number" id="go-toll" inputmode="numeric" min="0" placeholder="例:3790">
       <div class="hint" id="go-file-toll"></div>
       <label for="go-discount">ETC割引</label>
       <select id="go-discount">
+        <option value="auto" selected>自動で判定する(おすすめ)</option>
         <option value="0">割引なし</option>
         <option value="file">割引あり(テキストの料金)</option>
         <option value="0.3">休日割引(30%引き)</option>
         <option value="0.3">深夜割引(30%引き)</option>
       </select>
+      <div class="hint" id="go-discount-note"></div>
       <p class="hint">
         料金は <a href="https://www.driveplaza.com/" target="_blank" rel="noopener">ドラぷら(NEXCOの料金検索)</a> で、ICの名前と日時を入れると調べられます。
         ETC割引が使えるかどうかは、同じ区間でも曜日や時間で変わります。ドラぷらで「ETC料金」を確かめてから選んでください。割引後の料金をそのまま入れたときは「割引なし」を選びます。
@@ -331,6 +345,16 @@
 
     <!-- ---- 帰り ---- -->
     <h3>帰り</h3>
+    <div class="row">
+      <div>
+        <label for="back-date">出発する日</label>
+        <input type="date" id="back-date">
+      </div>
+      <div>
+        <label for="back-time">出発する時刻</label>
+        <input type="time" id="back-time">
+      </div>
+    </div>
     <label class="check"><input type="checkbox" id="back-same" checked> 行きの到着地から、行きの出発地へ戻る</label>
     <div id="back-address-area">
       <label for="back-from">出発する住所</label>
@@ -350,6 +374,7 @@
 
     <label class="check"><input type="checkbox" id="back-hw"> 帰りに高速道路を使う</label>
     <div class="sub" id="back-hw-area">
+      <button class="wide outline" id="back-ic-fill" type="button">行きのICを逆にして入れる</button>
       <div class="row">
         <div>
           <label for="back-ic-in">乗るIC</label>
@@ -362,16 +387,18 @@
           <input type="text" id="back-ic-out" placeholder="例:東京IC">
         </div>
       </div>
-      <label for="back-toll">高速料金(円)</label>
+      <label for="back-toll">高速料金(円・割引なしの通常料金)</label>
       <input type="number" id="back-toll" inputmode="numeric" min="0" placeholder="例:3790">
       <div class="hint" id="back-file-toll"></div>
       <label for="back-discount">ETC割引</label>
       <select id="back-discount">
+        <option value="auto" selected>自動で判定する(おすすめ)</option>
         <option value="0">割引なし</option>
         <option value="file">割引あり(テキストの料金)</option>
         <option value="0.3">休日割引(30%引き)</option>
         <option value="0.3">深夜割引(30%引き)</option>
       </select>
+      <div class="hint" id="back-discount-note"></div>
     </div>
 
     <button class="wide" id="back-search">帰りの距離を自動で調べる</button>
@@ -437,7 +464,7 @@
   const STORAGE_KEY = "warikan-app";
 
   // ガソリン価格の最初の値(目安)。画面で書きかえると、そちらが使われます
-  const DEFAULT_PRICES = { regular: 160, premium: 171, diesel: 145 };
+  const DEFAULT_PRICES = { regular: 170, premium: 181, diesel: 156 };
 
   // 燃料の日本語の名前
   const FUEL_NAMES = { regular: "レギュラー", premium: "ハイオク", diesel: "軽油" };
@@ -445,8 +472,9 @@
   // 「今回の移動」で覚えておく入力欄の id 一覧
   const TRIP_FIELDS = [
     "trip-car", "go-from", "go-to", "go-km", "go-hw", "go-ic-in", "go-ic-out", "go-toll", "go-discount",
+    "go-date", "go-time",
     "back-same", "back-from", "back-to", "back-km", "back-hw", "back-ic-in", "back-ic-out", "back-toll",
-    "back-discount", "other", "people", "rounding", "driver-pays", "back-via-same"
+    "back-discount", "back-date", "back-time", "other", "people", "rounding", "driver-pays", "back-via-same"
   ];
 
   // id から画面の部品を取り出す短い書き方
@@ -462,6 +490,7 @@
   data.ics = data.ics.map(function (ic) { return typeof ic === "string" ? { name: ic } : ic; });
   data.tolls = data.tolls || {};   // { "東京IC→静岡IC": 3790 }
   data.patterns = data.patterns || []; // [{name, trip, carName, total, per, prices, savedAt}]
+  data.priceUpdatedAt = data.priceUpdatedAt || ""; // ガソリンの値段を最後に変えた日(YYYY-MM-DD)
 
   function load() {
     try {
@@ -579,7 +608,7 @@
     renderRegList("place-list", data.places, function (p, span) {
       span.textContent = p.name + " ";
       const small = document.createElement("small");
-      small.textContent = p.address;
+      small.textContent = p.address + (p.lon !== undefined ? "(位置あり)" : "");
       span.appendChild(small);
     });
     renderRegList("ic-list", data.ics, function (ic, span) {
@@ -626,14 +655,21 @@
     });
   });
 
-  $("place-add").addEventListener("click", function () {
+  $("place-add").addEventListener("click", async function () {
     const name = $("place-name").value.trim();
     const address = $("place-address").value.trim();
     if (name === "" || address === "") {
       alert("名前と住所を両方入れてください");
       return;
     }
-    data.places.push({ name: name, address: address });
+    // 場所の座標も一緒に覚えておくと、距離を調べるとき速くて安定する
+    const place = { name: name, address: address };
+    try {
+      const pt = await addressToPoint(address);
+      place.lon = pt[0];
+      place.lat = pt[1];
+    } catch (e) { /* 座標が取れなくても、登録はする */ }
+    data.places.push(place);
     save();
     $("place-name").value = "";
     $("place-address").value = "";
@@ -818,7 +854,9 @@
         names.push(FUEL_NAMES[fuel] + " " + fileData.prices[fuel] + "円");
       }
     });
+    if (names.length) data.priceUpdatedAt = todayStr();
     save();
+    updatePriceFresh();
     const tollCount = Object.keys(fileData.tolls).length;
     status.className = "status ok";
     status.textContent = "テキストから読み込みました:" +
@@ -917,10 +955,117 @@
     input.value = data.prices[fuel];
     input.addEventListener("input", function () {
       data.prices[fuel] = num("price-" + fuel);
+      data.priceUpdatedAt = todayStr();
       save();
+      updatePriceFresh();
       calc();
     });
   });
+
+  // =====================================================
+  //  ETC割引の自動判定と、ガソリンの値段の鮮度
+  // =====================================================
+  // 日本の祝日(2026年・2027年)。振替休日と国民の休日もふくむ。
+  // 割引の判定は「最初の提案」に使うだけで、画面でいつでも変えられます
+  const HOLIDAYS = {};
+  ("2026-01-01 2026-01-12 2026-02-11 2026-02-23 2026-03-20 2026-04-29 " +
+    "2026-05-03 2026-05-04 2026-05-05 2026-05-06 2026-07-20 2026-08-11 " +
+    "2026-09-21 2026-09-22 2026-09-23 2026-10-12 2026-11-03 2026-11-23 " +
+    "2027-01-01 2027-01-11 2027-02-11 2027-02-23 2027-03-20 2027-04-29 " +
+    "2027-05-03 2027-05-04 2027-05-05 2027-07-19 2027-08-11 " +
+    "2027-09-20 2027-09-23 2027-10-11 2027-11-03 2027-11-23"
+  ).split(" ").forEach(function (d) { HOLIDAYS[d] = true; });
+
+  // 今日の日付を "2026-11-16" の形にする
+  function todayStr() {
+    const n = new Date();
+    const m = ("0" + (n.getMonth() + 1)).slice(-2);
+    const d = ("0" + n.getDate()).slice(-2);
+    return n.getFullYear() + "-" + m + "-" + d;
+  }
+
+  // "2026-11-16" のような日付文字列から、その日の0時の Date を作る
+  function parseDateStr(str) {
+    const p = str.split("-");
+    return new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10));
+  }
+
+  function dateToStr(d) {
+    const m = ("0" + (d.getMonth() + 1)).slice(-2);
+    const day = ("0" + d.getDate()).slice(-2);
+    return d.getFullYear() + "-" + m + "-" + day;
+  }
+
+  // その日が「休み」か(土・日・祝日のどれか)
+  function isDayOff(d) {
+    const w = d.getDay();
+    return w === 0 || w === 6 || !!HOLIDAYS[dateToStr(d)];
+  }
+
+  // 休日割引の対象かどうか。土日祝でも、3日以上続く連休の期間は対象外
+  function holidayDiscountInfo(dateStr) {
+    const d = parseDateStr(dateStr);
+    if (!isDayOff(d)) return { ok: false, reason: "平日なので休日割引は使えません" };
+    // その日をふくむ「休みの連続」の長さを数える
+    let len = 1;
+    const cur = new Date(d.getTime());
+    cur.setDate(cur.getDate() - 1);
+    while (isDayOff(cur)) { len++; cur.setDate(cur.getDate() - 1); }
+    cur.setTime(d.getTime());
+    cur.setDate(cur.getDate() + 1);
+    while (isDayOff(cur)) { len++; cur.setDate(cur.getDate() + 1); }
+    if (len >= 3) return { ok: false, reason: len + "連休の期間は休日割引の対象外です" };
+    return { ok: true, reason: "土日祝で休日割引の対象です" };
+  }
+
+  // ETC割引を自動判定する。戻り値は { rate: 0 か 0.3, reason: 理由の文 }
+  function judgeDiscount(prefix) {
+    const dateStr = $(prefix + "-date").value;
+    const timeStr = $(prefix + "-time").value;
+    if (!dateStr) return { rate: 0, reason: "出発する日を入れると、割引を自動で判定します" };
+    // 深夜割引は「0時〜4時に高速の上にいること」が条件。ここでは出発時刻で判定する
+    if (timeStr) {
+      const h = parseInt(timeStr.split(":")[0], 10);
+      if (h >= 0 && h < 4) {
+        return { rate: 0.3, reason: "出発が0〜4時なので深夜割引(30%引き)で計算します" };
+      }
+    }
+    const info = holidayDiscountInfo(dateStr);
+    if (info.ok) return { rate: 0.3, reason: info.reason + "ので、休日割引(30%引き)で計算します" };
+    return { rate: 0, reason: info.reason + "ので、割引なしで計算します" };
+  }
+
+  // 割引の判定理由を、割引欄の下に表示する
+  function updateDiscountNotes() {
+    ["go", "back"].forEach(function (prefix) {
+      const box = $(prefix + "-discount-note");
+      if (!box) return;
+      box.textContent = $(prefix + "-discount").value === "auto"
+        ? "自動判定:" + judgeDiscount(prefix).reason
+        : "";
+    });
+  }
+
+  // ガソリンの値段が古くなっていないか知らせる(30日以上そのままなら注意)
+  function updatePriceFresh() {
+    const box = $("price-fresh");
+    if (!box) return;
+    if (!data.priceUpdatedAt) { box.textContent = ""; return; }
+    const days = Math.floor((parseDateStr(todayStr()) - parseDateStr(data.priceUpdatedAt)) / 86400000);
+    if (days >= 30) {
+      box.className = "status ng";
+      box.textContent = "ガソリンの値段は " + data.priceUpdatedAt + "(" + days + "日前)のままです。ときどき見直してください。";
+    } else {
+      box.className = "status";
+      box.textContent = "ガソリンの値段は " + data.priceUpdatedAt + " に確認したものです。";
+    }
+  }
+
+  // 登録した場所に座標があれば、それを返す(住所が一致したとき)。なければ null
+  function pointForAddress(address) {
+    const p = data.places.find(function (x) { return x.address === address; });
+    return p && p.lon !== undefined ? [p.lon, p.lat] : null;
+  }
 
   // =====================================================
   //  ③ 距離を自動で調べる
@@ -1000,7 +1145,7 @@
       // 経由地の住所を緯度・経度に変える
       const viaNames = viaList(prefix);
       const viaPoints = [];
-      for (const v of viaNames) viaPoints.push(await addressToPoint(v));
+      for (const v of viaNames) viaPoints.push(pointForAddress(v) || await addressToPoint(v));
 
       // ICの位置を集める
       const icPoints = [];
@@ -1015,7 +1160,9 @@
 
       // 通る順番に並べる(行きは経由地が先、帰りはICが先)
       const middle = prefix === "go" ? viaPoints.concat(icPoints) : icPoints.concat(viaPoints);
-      const points = [await addressToPoint(addr.from)].concat(middle, [await addressToPoint(addr.to)]);
+      const fromPoint = pointForAddress(addr.from) || await addressToPoint(addr.from);
+      const toPoint = pointForAddress(addr.to) || await addressToPoint(addr.to);
+      const points = [fromPoint].concat(middle, [toPoint]);
 
       const km = await roadDistanceKm(points);
       $(prefix + "-km").value = km.toFixed(1); // 小数第1位まで
@@ -1081,7 +1228,8 @@
       const ft = fileToll(prefix);
       return ft && ft.discount !== null ? ft.discount : toll;
     }
-    const discount = parseFloat(choice); // 0 か 0.3
+    // 「自動で判定する」のときは、出発する日と時刻から割引率を決める
+    const discount = choice === "auto" ? judgeDiscount(prefix).rate : parseFloat(choice); // 0 か 0.3
     return Math.round(toll * (1 - discount));
   }
 
@@ -1161,6 +1309,12 @@
       note = payers + "人で割りました" + (driverPays ? "" : "(運転手はのぞく)");
       if (collected > total) note += "。切り上げで " + yen(collected - total) + " 多く集まります";
     }
+    // 入力漏れの警告(静かに0円にならないように)
+    const warnings = [];
+    if (car && totalKm === 0) warnings.push("距離が入っていません");
+    if (car && !(data.prices[car.fuel] > 0)) warnings.push("ガソリンの値段が入っていません");
+    if (warnings.length > 0) note = "⚠ " + warnings.join("・") + (note ? "。" + note : "");
+
     $("per-label").textContent = driverPays ? "1人あたり" : "1人あたり(運転手以外)";
     $("per-person").textContent = payers > 0 ? yen(per) : "-";
     $("per-note").textContent = note;
@@ -1223,6 +1377,7 @@
     updateVisibility();
     updateMapLinks();
     updateFileHints();
+    updateDiscountNotes();
     calc();
   }
 
@@ -1373,6 +1528,8 @@
     $("trip-car").value = keepCar;
     $("people").value = 2;
     $("rounding").value = "100";
+    $("go-date").value = todayStr();
+    $("back-date").value = todayStr();
     ["go-status", "back-status", "copy-status", "pattern-status"].forEach(function (id) { $(id).textContent = ""; });
     $("pattern-name").value = "";
     vias = { go: [], back: [] };
@@ -1380,6 +1537,13 @@
     renderVias("back");
     loadedPattern = null;
     renderPatterns();
+    onTripChange();
+  });
+
+  // 帰りのIC欄に、行きのICを逆にして入れる
+  $("back-ic-fill").addEventListener("click", function () {
+    $("back-ic-in").value = $("go-ic-out").value;
+    $("back-ic-out").value = $("go-ic-in").value;
     onTripChange();
   });
 
@@ -1393,6 +1557,11 @@
   updateVisibility();
   updateMapLinks();
   calc();
+  // 出発する日がまだ入っていなければ、今日の日付を入れておく
+  if (!$("go-date").value) $("go-date").value = todayStr();
+  if (!$("back-date").value) $("back-date").value = $("go-date").value;
+  updateDiscountNotes();
+  updatePriceFresh();
   loadGasFile(); // テキストの値段を読み込む(読めたら計算し直す)
 </script>
 </body>
